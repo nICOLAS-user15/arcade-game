@@ -491,13 +491,49 @@ input:checked + .switch { background: var(--blue); }
 input:checked + .switch::after { transform: translateX(22px); }
 input:focus-visible + .switch { outline: 3px solid #fff; outline-offset: 2px; }
 
-.scores-body { overflow-y: auto; padding: 14px 20px 20px; user-select: text; }
+/* Volume sliders sit right under their on/off switch */
+.setting:has(+ .volume) { border-bottom: 0; padding-bottom: 6px; }
+.setting.volume { padding: 0 0 14px; gap: 12px; }
+.volume input[type='range'] {
+  --fill: 100%;
+  flex: 1; min-width: 0; height: 30px; margin: 0; background: transparent; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+.volume input[type='range']::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: linear-gradient(to right, var(--blue) var(--fill), rgba(255, 255, 255, 0.14) var(--fill)); }
+.volume input[type='range']::-moz-range-track { height: 8px; border-radius: 999px; background: linear-gradient(to right, var(--blue) var(--fill), rgba(255, 255, 255, 0.14) var(--fill)); }
+.volume input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -8px; background: #fff; border: 0; border-radius: 50%; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.volume input[type='range']::-moz-range-thumb { width: 24px; height: 24px; background: #fff; border: 0; border-radius: 50%; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.volume input[type='range']:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 999px; }
+.vol-val { flex: none; width: 4ch; text-align: right; font-size: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.scores-filters { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 0; }
+.scores-body { overflow-y: auto; padding: 10px 20px 20px; user-select: text; }
 .scores-table { width: 100%; border-collapse: collapse; font-size: 17px; }
 .scores-table th { padding: 6px 8px; font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(8px * var(--display-scale)); letter-spacing: 1px; color: var(--muted); text-align: left; }
-.scores-table td { padding: 10px 8px; border-top: 1px solid var(--line); }
-.scores-table td:nth-child(2) { font-family: var(--font-pixel); font-size: calc(11px * var(--display-scale)); color: var(--yellow); }
-.scores-table td:nth-child(3) { color: var(--muted); }
+.scores-table td { padding: 7px 8px; border-top: 1px solid var(--line); }
+.scores-table td:nth-child(1) { width: 2.4em; font-weight: 700; color: var(--muted); }
+.scores-table td:nth-child(2) { font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(11px * var(--display-scale)); letter-spacing: 2px; }
+.scores-table td:nth-child(3) { font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(11px * var(--display-scale)); color: var(--yellow); }
+.scores-table td:nth-child(4) { color: var(--muted); }
+.scores-table tbody tr:nth-child(1) td:nth-child(1) { color: #ffd54a; }
+.scores-table tbody tr:nth-child(2) td:nth-child(1) { color: #cfd8e3; }
+.scores-table tbody tr:nth-child(3) td:nth-child(1) { color: #d9985f; }
+.scores-table tr.empty td { opacity: 0.4; }
 .scores-foot { margin-top: 14px; font-size: 15px; color: var(--muted); }
+
+.rank-line { margin-bottom: 12px; font-size: 18px; font-weight: 700; color: var(--cyan); }
+.initials-field { display: block; margin-bottom: 14px; }
+.initials-field .field-label { display: block; margin-bottom: 8px; }
+#initialsInput {
+  width: 6em; padding: 8px 0 8px 0.35em;
+  font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(26px * var(--display-scale));
+  letter-spacing: 0.35em; text-align: center; text-transform: uppercase;
+  color: var(--yellow); caret-color: var(--yellow); background: var(--panel-2);
+  border: 2px solid var(--line); border-radius: 12px;
+}
+#initialsInput:focus { outline: 0; border-color: var(--yellow); box-shadow: 0 0 18px color-mix(in srgb, var(--yellow) 40%, transparent); }
+.install-steps { padding: 18px 20px 22px 44px; list-style: decimal; display: flex; flex-direction: column; gap: 12px; font-size: 18px; }
+.install-btn { margin-top: 4px; }
 
 /* ------------------------------------------------------------- 8. Responsive modes */
 
@@ -643,6 +679,11 @@ html[data-theme='retro'] {
   --font-ui: 'VT323', ui-monospace, monospace;
   --display-scale: 1.3;
 }
+html:is([data-theme='retro'], [data-theme='minimal']) #initialsInput { border-radius: 0; }
+html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-webkit-slider-runnable-track,
+html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-webkit-slider-thumb { border-radius: 0; }
+html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-moz-range-track,
+html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-moz-range-thumb { border-radius: 0; }
 html:is([data-theme='retro'], [data-theme='minimal']) :is(.menu-card, .menu-lang, .lang-btn, .stat, .stage-badge, .board, .lives, .icon-btn, .btn-ghost,
   .btn-primary, .segmented, .segmented button, .modal, .dialog, .dpad-btn, .features li, .bonus-line, .control-card,
   .sprite-card, .ghost-list li, .tips li, .toast, .coach, .switch, .switch::after, kbd) { border-radius: 0; }
@@ -744,7 +785,7 @@ html[data-theme='minimal'] :is(.btn-ghost, .icon-btn):hover { background: #fffff
 html[data-theme='minimal'] :is(.modal h2, .dialog-head h2) { font-size: 18px; font-weight: 800; letter-spacing: 3px; color: #ffffff; text-shadow: none; }
 html[data-theme='minimal'] .step h3 { font-size: 16px; font-weight: 800; }
 html[data-theme='minimal'] :is(.new-best, .ghost-list b) { font-size: 13px; font-weight: 800; letter-spacing: 1px; }
-html[data-theme='minimal'] :is(.life-more, .bonus-line b, .scores-table td:nth-child(2)) { font-size: 15px; font-weight: 800; }
+html[data-theme='minimal'] :is(.life-more, .bonus-line b, .scores-table td:nth-child(2), .scores-table td:nth-child(3)) { font-size: 15px; font-weight: 800; }
 html[data-theme='minimal'] .stage-badge { background: #000000; box-shadow: none; border: 2px solid #ffffff; }
 html[data-theme='minimal'] .stage-name { color: #ffffff; }
 html[data-theme='minimal'] .board { border: 2px solid #ffffff; box-shadow: 6px 6px 0 #ffffff; }

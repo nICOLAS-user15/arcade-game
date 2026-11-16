@@ -17,6 +17,7 @@ const APP_SHELL = [
   'src/game.js',
   'src/i18n.js',
   'src/input.js',
+  'src/install.js',
   'src/intro.js',
   'src/main.js',
   'src/menu-fx.js',

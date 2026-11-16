@@ -21,6 +21,8 @@ export function defaultSettings(prefersReducedMotion = false) {
     lang: DEFAULT_LANG,
     sfx: true,
     music: true,
+    sfxVolume: 100,
+    musicVolume: 100,
     haptics: true,
     reduceMotion: prefersReducedMotion,
     dpad: 'auto',
@@ -60,11 +62,28 @@ function pickBackend() {
 
 export const scoreKey = (mode, difficulty) => `${mode}:${difficulty}`;
 
+export const BOARD_SIZE = 10;
+export const NAME_LENGTH = 3;
+const clampVolume = (v) => (Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v))) : 100);
+
+/** Arcade initials: up to three letters or digits, upper case. */
+export function cleanName(raw) {
+  return String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, NAME_LENGTH);
+}
+
+function cleanEntry(e) {
+  const score = Math.floor(Number(e?.score));
+  if (!Number.isFinite(score) || score <= 0) return null;
+  const level = Math.floor(Number(e?.level));
+  return { name: cleanName(e?.name) || '---', score, level: Number.isFinite(level) && level > 0 ? level : 1, date: Number(e?.date) || 0 };
+}
+
 export class Storage {
   constructor(backend = pickBackend(), { prefersReducedMotion = false } = {}) {
     this.backend = backend;
     this.defaults = defaultSettings(prefersReducedMotion);
     this.migrateLegacy();
+    this.migrateBoard();
   }
 
   read(key, fallback) {
@@ -106,6 +125,8 @@ export class Storage {
     if (!GAME_MODES[s.mode]) s.mode = 'campaign';
     if (!DIFFICULTIES[s.difficulty]) s.difficulty = 'normal';
     if (!Object.hasOwn(THEMES, s.theme)) s.theme = DEFAULT_THEME;
+    s.sfxVolume = clampVolume(s.sfxVolume);
+    s.musicVolume = clampVolume(s.musicVolume);
     return s;
   }
 
@@ -145,6 +166,63 @@ export class Storage {
     return isRecord;
   }
 
+  // ---- top-10 table with initials -------------------------------------
+
+  /** Top scores for one mode and difficulty, best first. */
+  board(mode, difficulty) {
+    const all = this.read('board', {});
+    const raw = all && typeof all === 'object' ? all[scoreKey(mode, difficulty)] : null;
+    const list = Array.isArray(raw) ? raw.map(cleanEntry).filter(Boolean) : [];
+    return list.sort((a, b) => b.score - a.score).slice(0, BOARD_SIZE);
+  }
+
+  /** Personal bests saved before the table existed become its first entries, with "---" initials. */
+  migrateBoard() {
+    try {
+      if (this.backend.getItem(PREFIX + 'board') !== null) return;
+      const board = {};
+      for (const [key, e] of Object.entries(this.allScores())) {
+        const entry = cleanEntry({ name: '', score: e?.score, level: e?.level });
+        if (entry) board[key] = [entry];
+      }
+      if (Object.keys(board).length) this.write('board', board);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Zero-based position a score would take, or -1 when it does not make the table. */
+  rankFor(mode, difficulty, score) {
+    if (!(score > 0)) return -1;
+    const list = this.board(mode, difficulty);
+    const at = list.findIndex((e) => score > e.score);
+    if (at >= 0) return at;
+    return list.length < BOARD_SIZE ? list.length : -1;
+  }
+
+  qualifies(mode, difficulty, score) {
+    return this.rankFor(mode, difficulty, score) >= 0;
+  }
+
+  /** Inserts a result. Returns its zero-based position, or -1 when it does not make the table. */
+  addToBoard(mode, difficulty, { name, score, level }) {
+    const rank = this.rankFor(mode, difficulty, score);
+    if (rank < 0) return -1;
+    const list = this.board(mode, difficulty);
+    const entry = cleanEntry({ name, score, level, date: Date.now() });
+    list.splice(rank, 0, entry);
+    list.length = Math.min(list.length, BOARD_SIZE);
+    const all = this.read('board', {});
+    this.write('board', { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [scoreKey(mode, difficulty)]: list });
+    this.write('player', { name: entry.name });
+    return rank;
+  }
+
+  /** Initials used last time, offered again on the next entry. */
+  lastName() {
+    return cleanName(this.read('player', {})?.name);
+  }
+
   // ---- stats and onboarding -------------------------------------------
 
   stats() {
@@ -171,7 +249,7 @@ export class Storage {
 
   /** Erases scores, stats and onboarding progress but keeps the user's settings. */
   resetProgress() {
-    for (const key of ['scores', 'stats', 'seen']) {
+    for (const key of ['scores', 'board', 'player', 'stats', 'seen']) {
       try {
         this.backend.removeItem(PREFIX + key);
       } catch {

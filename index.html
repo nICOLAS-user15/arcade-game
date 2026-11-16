@@ -96,6 +96,11 @@
           </button>
         </div>
 
+        <button type="button" id="btnInstall" class="btn-ghost block install-btn" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg>
+          <span data-i18n="menu.install">Install app</span>
+        </button>
+
         <p id="bestLine" class="best-line"></p>
        </div>
       </div>
@@ -156,9 +161,24 @@
               <h2 id="overlayTitle"></h2>
               <p id="overlaySubtitle" class="modal-text"></p>
               <p id="newBest" class="new-best" hidden data-i18n="result.newBest">★ NEW PERSONAL BEST ★</p>
+              <p id="resultRank" class="rank-line" hidden></p>
               <div class="modal-actions">
                 <button type="button" id="btnPrimary" class="btn-primary small"></button>
                 <button type="button" id="btnSecondary" class="btn-ghost block"></button>
+              </div>
+            </div>
+
+            <div id="initialsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="initialsTitle" hidden>
+              <div class="modal-icon" aria-hidden="true">🏆</div>
+              <h2 id="initialsTitle" data-i18n="initials.title">NEW HIGH SCORE!</h2>
+              <p id="initialsRank" class="modal-text"></p>
+              <label class="initials-field">
+                <span class="field-label" data-i18n="initials.prompt">Enter your initials</span>
+                <input id="initialsInput" type="text" maxlength="3" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
+              </label>
+              <div class="modal-actions">
+                <button type="button" id="btnInitialsSave" class="btn-primary small" data-i18n="initials.save">SAVE</button>
+                <button type="button" id="btnInitialsSkip" class="btn-ghost block" data-i18n="initials.skip">Skip</button>
               </div>
             </div>
           </div>
@@ -304,12 +324,20 @@
           <input type="checkbox" role="switch" data-setting="music">
           <span class="switch" aria-hidden="true"></span>
         </label>
+        <div class="setting volume">
+          <input type="range" min="0" max="100" step="5" data-volume="musicVolume" data-i18n-aria="settings.musicVolume">
+          <output class="vol-val" data-for="musicVolume"></output>
+        </div>
 
         <label class="setting">
           <span class="setting-text"><b data-i18n="settings.sfx">Sound effects</b></span>
           <input type="checkbox" role="switch" data-setting="sfx">
           <span class="switch" aria-hidden="true"></span>
         </label>
+        <div class="setting volume">
+          <input type="range" min="0" max="100" step="5" data-volume="sfxVolume" data-i18n-aria="settings.sfxVolume">
+          <output class="vol-val" data-for="sfxVolume"></output>
+        </div>
 
         <label class="setting">
           <span class="setting-text"><b data-i18n="settings.haptics">Vibration</b><small data-i18n="settings.haptics.hint">Haptic feedback on supported phones</small></span>
@@ -346,7 +374,33 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
+      <div class="scores-filters">
+        <div id="scoresMode" class="segmented" role="radiogroup" data-i18n-aria="menu.mode">
+          <button type="button" role="radio" aria-checked="true" data-mode="campaign" data-i18n="mode.campaign">Campaign</button>
+          <button type="button" role="radio" aria-checked="false" data-mode="endless" data-i18n="mode.endless">Endless</button>
+        </div>
+        <div id="scoresDiff" class="segmented four" role="radiogroup" data-i18n-aria="menu.difficulty">
+          <button type="button" role="radio" aria-checked="false" data-diff="easy" data-i18n="diff.easy">Easy</button>
+          <button type="button" role="radio" aria-checked="true" data-diff="normal" data-i18n="diff.normal">Normal</button>
+          <button type="button" role="radio" aria-checked="false" data-diff="hard" data-i18n="diff.hard">Hard</button>
+          <button type="button" role="radio" aria-checked="false" data-diff="hardcore" data-i18n="diff.hardcore">Hardcore</button>
+        </div>
+      </div>
       <div id="scoresBody" class="scores-body"></div>
+    </dialog>
+
+    <dialog id="installDialog" class="dialog" aria-labelledby="installTitle">
+      <div class="dialog-head">
+        <h2 id="installTitle" data-i18n="install.title">ADD TO HOME SCREEN</h2>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="btn.close" data-i18n-title="btn.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <ol class="install-steps">
+        <li data-i18n="install.step1">Tap the Share button in your browser (the square with an arrow).</li>
+        <li data-i18n="install.step2">Choose “Add to Home Screen”.</li>
+        <li data-i18n="install.step3">Tap “Add”. The game opens like a normal app and even works offline.</li>
+      </ol>
     </dialog>
 
     <div id="toasts" class="toasts" aria-hidden="true"></div>

@@ -17,6 +17,9 @@ export class SoundController {
     this.enabled = true;
     this.musicEnabled = true;
     this.wantedMusic = null;
+    this.musicVolume = 1;
+    this.sfxVolume = 1;
+    this.ducked = false;
     this.lastWaka = 0;
     this.wakaHigh = false;
 
@@ -49,8 +52,8 @@ export class SoundController {
         this.musicFilter.frequency.value = 20000;
         this.musicFilter.connect(this.master);
         this.musicBus = this.ctx.createGain();
-        this.musicBus.gain.value = MUSIC_LEVEL;
         this.musicBus.connect(this.musicFilter);
+        this.applyLevels(true);
 
         this.noise = this.makeNoise();
         this.music = new MusicPlayer(this.ctx, this.musicBus, this.noise);
@@ -73,6 +76,27 @@ export class SoundController {
 
   setEnabled(on) {
     this.enabled = on;
+  }
+
+  /** Slider positions from 0 to 1. Squared, so the lower half of the slider is still useful. */
+  setVolumes(music, sfx) {
+    this.musicVolume = music;
+    this.sfxVolume = sfx;
+    this.applyLevels();
+  }
+
+  applyLevels(instant = false) {
+    if (!this.ctx) return;
+    const sfx = this.sfxVolume ** 2;
+    const music = MUSIC_LEVEL * this.musicVolume ** 2 * (this.ducked ? 0.6 : 1);
+    if (instant) {
+      this.sfx.gain.value = sfx;
+      this.musicBus.gain.value = music;
+      return;
+    }
+    const t = this.ctx.currentTime;
+    this.sfx.gain.setTargetAtTime(sfx, t, 0.03);
+    this.musicBus.gain.setTargetAtTime(music, t, 0.08);
   }
 
   // ------------------------------------------------------------------ music
@@ -112,10 +136,10 @@ export class SoundController {
 
   /** Muffled and quieter while paused, like hearing the game through a door. */
   duckMusic(on) {
+    this.ducked = on;
     if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    this.musicFilter.frequency.setTargetAtTime(on ? 650 : 20000, t, 0.08);
-    this.musicBus.gain.setTargetAtTime(on ? MUSIC_LEVEL * 0.6 : MUSIC_LEVEL, t, 0.08);
+    this.musicFilter.frequency.setTargetAtTime(on ? 650 : 20000, this.ctx.currentTime, 0.08);
+    this.applyLevels();
   }
 
   // ------------------------------------------------------------------ building blocks

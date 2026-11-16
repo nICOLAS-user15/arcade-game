@@ -3,8 +3,9 @@
  * the "How to play" tutorial, settings and the high-score table.
  */
 
-import { DIFFICULTIES, GAME_MODES, GHOST_DEFS, PHASES, PHASE_COUNT } from './config.js';
+import { DIFFICULTIES, GHOST_DEFS, PHASES, PHASE_COUNT } from './config.js';
 import { t, formatNumber } from './i18n.js';
+import { BOARD_SIZE } from './storage.js';
 import { Starfield, AttractLane } from './menu-fx.js';
 import { drawPacman, drawGhost, drawPowerPellet, drawPellet, drawEmoji } from './sprites.js';
 
@@ -47,6 +48,9 @@ export class MenuUI {
     this.startAfterHowTo = false;
     this.resetArmed = null;
     this.raf = 0;
+    this.lastPreview = 0;
+    this.boardMode = app.settings.mode;
+    this.boardDiff = app.settings.difficulty;
 
     this.stars = new Starfield(this.$('menuBg'));
     this.lane = new AttractLane(this.$('menuLane'));
@@ -120,6 +124,14 @@ export class MenuUI {
     document.querySelectorAll('input[data-setting]').forEach((input) => {
       input.checked = !!s[input.dataset.setting];
     });
+    document.querySelectorAll('input[data-volume]').forEach((input) => {
+      const v = s[input.dataset.volume];
+      input.value = String(v);
+      input.style.setProperty('--fill', `${v}%`);
+      input.setAttribute('aria-valuetext', `${v}%`);
+      const out = document.querySelector(`output[data-for="${input.dataset.volume}"]`);
+      if (out) out.textContent = `${v}%`;
+    });
     if (this.$('howtoDialog').open) this.goToStep(this.step);
     if (this.$('scoresDialog').open) this.renderScores();
     this.updateStartButton();
@@ -176,6 +188,35 @@ export class MenuUI {
       });
     });
 
+    document.querySelectorAll('input[data-volume]').forEach((input) => {
+      input.addEventListener('input', () => {
+        const key = input.dataset.volume;
+        const flag = key === 'musicVolume' ? 'music' : 'sfx';
+        const volume = Number(input.value);
+        sound.init();
+        // Moving a slider of a muted channel switches that channel back on
+        this.app.update({ [key]: volume, ...(volume > 0 ? { [flag]: true } : {}) });
+        const now = performance.now();
+        if (flag === 'sfx' && now - this.lastPreview > 120) {
+          this.lastPreview = now;
+          sound.click();
+        }
+      });
+    });
+
+    bindRadioGroup($('scoresMode'), (btn) => {
+      sound.init();
+      sound.click();
+      this.boardMode = btn.dataset.mode;
+      this.renderScores();
+    });
+    bindRadioGroup($('scoresDiff'), (btn) => {
+      sound.init();
+      sound.click();
+      this.boardDiff = btn.dataset.diff;
+      this.renderScores();
+    });
+
     $('btnReset').addEventListener('click', () => this.resetProgress());
 
     // Dialogs: close buttons, backdrop click, tutorial navigation
@@ -211,8 +252,9 @@ export class MenuUI {
         $('themePicker').querySelector('[aria-checked="true"]'),
         $('btnHowTo'),
         $('btnScores'),
-        $('btnSettings')
-      ].filter(Boolean);
+        $('btnSettings'),
+        $('btnInstall')
+      ].filter((el) => el && !el.hidden);
       const i = rows.findIndex((el) => el === document.activeElement);
       if (i < 0) return;
       e.preventDefault();
@@ -338,7 +380,10 @@ export class MenuUI {
     if (!dlg.open) dlg.showModal();
   }
 
+  /** The table opens on the mode and difficulty currently selected in the menu. */
   openScores() {
+    this.boardMode = this.app.settings.mode;
+    this.boardDiff = this.app.settings.difficulty;
     this.renderScores();
     this.$('scoresDialog').showModal();
   }
@@ -346,28 +391,30 @@ export class MenuUI {
   renderScores() {
     const body = this.$('scoresBody');
     body.textContent = '';
-    const all = this.app.storage.allScores();
+    const { boardMode: mode, boardDiff: diff } = this;
+    setChecked(this.$('scoresMode'), (r) => r.dataset.mode === mode);
+    setChecked(this.$('scoresDiff'), (r) => r.dataset.diff === diff);
+    const list = this.app.storage.board(mode, diff);
 
     const table = document.createElement('table');
     table.className = 'scores-table';
     const head = table.createTHead().insertRow();
-    for (const key of ['scores.mode', 'scores.score', 'scores.reached']) {
+    for (const key of ['scores.rank', 'scores.name', 'scores.score', 'scores.reached']) {
       const th = document.createElement('th');
       th.scope = 'col';
       th.textContent = t(key);
       head.appendChild(th);
     }
     const tbody = table.createTBody();
-    for (const mode of Object.keys(GAME_MODES)) {
-      for (const diff of Object.keys(DIFFICULTIES)) {
-        const entry = all[`${mode}:${diff}`] || {};
-        const row = tbody.insertRow();
-        const label = row.insertCell();
-        label.textContent = `${t(`mode.${mode}`)} · ${t(`diff.${diff}`)}`;
-        row.insertCell().textContent = entry.score ? formatNumber(entry.score) : '–';
-        const level = Number(entry.level) || 0;
-        row.insertCell().textContent = !level ? '–' : t(level > PHASE_COUNT || mode === 'endless' ? 'scores.level' : 'scores.stage', { n: level });
-      }
+    // Always ten rows, like an arcade cabinet: unclaimed places show as dashes
+    for (let i = 0; i < BOARD_SIZE; i++) {
+      const entry = list[i];
+      const row = tbody.insertRow();
+      row.insertCell().textContent = String(i + 1);
+      row.insertCell().textContent = entry ? entry.name : '---';
+      row.insertCell().textContent = entry ? formatNumber(entry.score) : '–';
+      row.insertCell().textContent = entry ? t(entry.level > PHASE_COUNT || mode === 'endless' ? 'scores.level' : 'scores.stage', { n: entry.level }) : '–';
+      if (!entry) row.classList.add('empty');
     }
     body.appendChild(table);
 

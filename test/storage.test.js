@@ -82,6 +82,58 @@ test('the old single high score is migrated once', () => {
   assert.equal(backend.getItem('pacman_high_score'), null, 'legacy key removed');
 });
 
+test('top-10 table: sorted, capped at ten, ties go below, initials sanitized', () => {
+  const st = fresh();
+  assert.deepEqual(st.board('campaign', 'normal'), []);
+  assert.equal(st.qualifies('campaign', 'normal', 0), false, 'a zero score never qualifies');
+  assert.equal(st.addToBoard('campaign', 'normal', { name: 'abc', score: 500, level: 2 }), 0);
+  assert.equal(st.addToBoard('campaign', 'normal', { name: 'x_y!z9', score: 900, level: 3 }), 0);
+  assert.equal(st.addToBoard('campaign', 'normal', { name: '', score: 500, level: 1 }), 2, 'a tie ranks below the older entry');
+  assert.deepEqual(st.board('campaign', 'normal').map((e) => [e.name, e.score]), [['XYZ', 900], ['ABC', 500], ['---', 500]]);
+  assert.equal(st.lastName(), '', 'blank initials are not remembered as dashes');
+  assert.deepEqual(st.board('endless', 'normal'), [], 'every mode and difficulty has its own table');
+
+  for (let i = 1; i <= 12; i++) st.addToBoard('campaign', 'hard', { name: 'P' + i, score: i * 100, level: 1 });
+  const hard = st.board('campaign', 'hard');
+  assert.equal(hard.length, 10);
+  assert.equal(hard[0].score, 1200);
+  assert.equal(hard[9].score, 300, 'the two lowest scores dropped off');
+  assert.equal(st.qualifies('campaign', 'hard', 300), false, 'equal to the last place does not qualify');
+  assert.equal(st.qualifies('campaign', 'hard', 301), true);
+  assert.equal(st.addToBoard('campaign', 'hard', { name: 'LOW', score: 100, level: 1 }), -1);
+});
+
+test('old personal bests become the first table entries once; corrupt data is survivable', () => {
+  const old = new MemoryBackend();
+  new Storage(old).submitScore('campaign', 'normal', 4000, 3);
+  assert.equal(old.getItem('pacman_board'), null, 'recording a best alone does not touch the table');
+  const st = new Storage(old);
+  assert.deepEqual(st.board('campaign', 'normal').map((e) => [e.name, e.score, e.level]), [['---', 4000, 3]]);
+  assert.equal(st.addToBoard('campaign', 'normal', { name: 'ZED', score: 1000, level: 1 }), 1);
+  assert.deepEqual(new Storage(old).board('campaign', 'normal').map((e) => e.name), ['---', 'ZED'], 'migration does not run twice');
+
+  const backend = new MemoryBackend();
+  backend.setItem('pacman_board', JSON.stringify({ 'campaign:normal': [{ name: 'OK', score: 50, level: 1 }, { score: 'lots' }, null, 7] }));
+  const bad = new Storage(backend);
+  assert.deepEqual(bad.board('campaign', 'normal').map((e) => e.name), ['OK']);
+  backend.setItem('pacman_board', '[1,2]');
+  assert.deepEqual(bad.board('campaign', 'normal'), []);
+  assert.equal(bad.addToBoard('campaign', 'normal', { name: 'NEW', score: 10, level: 1 }), 0);
+});
+
+test('volume settings default to full, are clamped and round-trip', () => {
+  const st = fresh();
+  const s = st.loadSettings();
+  assert.equal(s.musicVolume, 100);
+  assert.equal(s.sfxVolume, 100);
+  st.saveSettings({ ...s, musicVolume: 35, sfxVolume: 0 });
+  assert.deepEqual([st.loadSettings().musicVolume, st.loadSettings().sfxVolume], [35, 0]);
+  st.saveSettings({ ...s, musicVolume: 900, sfxVolume: -20 });
+  assert.deepEqual([st.loadSettings().musicVolume, st.loadSettings().sfxVolume], [100, 0]);
+  st.saveSettings({ ...s, musicVolume: 'loud', sfxVolume: 42.6 });
+  assert.deepEqual([st.loadSettings().musicVolume, st.loadSettings().sfxVolume], [100, 43]);
+});
+
 test('onboarding flags and stats', () => {
   const st = fresh();
   assert.equal(st.seen('tutorial'), false);
@@ -99,10 +151,13 @@ test('resetProgress clears scores and onboarding but keeps settings', () => {
   const st = fresh();
   st.saveSettings({ ...st.loadSettings(), lang: 'pt' });
   st.submitScore('campaign', 'normal', 500, 1);
+  st.addToBoard('campaign', 'normal', { name: 'AAA', score: 500, level: 1 });
   st.markSeen('tutorial');
   st.incrementGamesPlayed();
   st.resetProgress();
   assert.equal(st.best('campaign', 'normal').score, 0);
+  assert.deepEqual(st.board('campaign', 'normal'), []);
+  assert.equal(st.lastName(), '');
   assert.equal(st.seen('tutorial'), false);
   assert.equal(st.stats().gamesPlayed, 0);
   assert.equal(st.loadSettings().lang, 'pt');

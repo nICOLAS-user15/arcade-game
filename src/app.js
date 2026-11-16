@@ -79,6 +79,7 @@ export class App {
     const s = this.settings;
     this.sound.setEnabled(s.sfx);
     this.sound.setMusicEnabled(s.music);
+    this.sound.setVolumes(s.musicVolume / 100, s.sfxVolume / 100);
     this.haptics.setEnabled(s.haptics);
     const root = document.documentElement;
     root.dataset.dpad = this.dpadVisible ? 'on' : 'off';

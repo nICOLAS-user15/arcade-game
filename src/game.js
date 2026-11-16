@@ -18,8 +18,9 @@ import { HAPTICS } from './audio.js';
 import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
+import { cleanName } from './storage.js';
 
-const MODALS = ['pauseModal', 'briefingModal', 'standardModal'];
+const MODALS = ['pauseModal', 'briefingModal', 'standardModal', 'initialsModal'];
 const TAU = Math.PI * 2;
 const FRUIT_SECONDS = 11;
 const HIT_STOP = 0.12;
@@ -574,18 +575,19 @@ export class Game {
     this.state = 'VICTORY';
     const isRecord = this.commitScore();
     this.app.sound.playJingle(isRecord ? 'record' : 'victory');
-    this.showResult({
+    this.askInitials((rank) => this.showResult({
       icon: '👑',
       title: t('result.victory'),
       text: t('result.victory.text', { max: PHASE_COUNT, score: formatNumber(this.score) }),
       isRecord,
+      rank,
       primary: [t('result.endless'), () => {
         this.endless = true;
         this.cutscene = null;
         this.showBriefing();
       }],
       secondary: [t('result.menu'), () => this.showMenu()]
-    });
+    }));
   }
 
   gameOver() {
@@ -594,14 +596,42 @@ export class Game {
     this.app.sound.playJingle(isRecord ? 'record' : 'gameOver');
     this.app.announce(t('sr.gameOver', { score: formatNumber(this.score) }));
     const where = t(this.isEndlessView ? 'result.where.level' : 'result.where.stage', { n: this.level });
-    this.showResult({
+    this.askInitials((rank) => this.showResult({
       icon: '💀',
       title: t('result.gameover'),
       text: t('result.gameover.text', { score: formatNumber(this.score), where }),
       isRecord,
+      rank,
       primary: [t('result.playAgain'), () => this.startNewGame()],
       secondary: [t('result.menu'), () => this.showMenu()]
-    });
+    }));
+  }
+
+  /**
+   * Arcade-style initials prompt when the finished run makes the top-10 table.
+   * Calls done(rank) with the zero-based position, or -1 when nothing was saved.
+   */
+  askInitials(done) {
+    const { storage } = this.app;
+    const { mode, score, level } = this;
+    const diff = this.difficulty.id;
+    const place = storage.rankFor(mode, diff, score);
+    if (place < 0) {
+      done(-1);
+      return;
+    }
+    const input = this.$('initialsInput');
+    input.value = storage.lastName();
+    this.$('initialsRank').textContent = t('initials.rank', { n: place + 1, score: formatNumber(score) });
+    this.initialsActions = {
+      save: () => done(storage.addToBoard(mode, diff, { name: input.value, score, level })),
+      skip: () => done(-1)
+    };
+    this.showOverlayModal('initialsModal');
+    setTimeout(() => {
+      input.focus({ preventScroll: true });
+      input.select();
+    }, 60);
   }
 
   // ================================================================ pause / actions
@@ -1089,11 +1119,13 @@ export class Game {
     return !this.overlay.hidden;
   }
 
-  showResult({ icon, title, text, isRecord, primary, secondary }) {
+  showResult({ icon, title, text, isRecord, rank = -1, primary, secondary }) {
     this.$('overlayIcon').textContent = icon;
     this.$('overlayTitle').textContent = title;
     this.$('overlaySubtitle').textContent = text;
     this.$('newBest').hidden = !isRecord;
+    this.$('resultRank').hidden = rank < 0;
+    this.$('resultRank').textContent = rank < 0 ? '' : t('result.rank', { n: rank + 1 });
     this.$('btnPrimary').textContent = primary[0];
     this.$('btnSecondary').textContent = secondary[0];
     this.resultActions = { primary: primary[1], secondary: secondary[1] };
@@ -1144,6 +1176,20 @@ export class Game {
     press('btnStartPhase', () => this.enterNextLevel());
     press('btnPrimary', () => this.resultActions?.primary());
     press('btnSecondary', () => this.resultActions?.secondary());
+    press('btnInitialsSave', () => this.initialsActions?.save());
+    press('btnInitialsSkip', () => this.initialsActions?.skip());
+    $('initialsInput').addEventListener('input', (e) => {
+      e.target.value = cleanName(e.target.value);
+    });
+    $('initialsInput').addEventListener('keydown', (e) => {
+      if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+        e.preventDefault();
+        this.initialsActions?.save();
+      } else if (e.code === 'Escape') {
+        e.preventDefault();
+        this.initialsActions?.skip();
+      }
+    });
 
     document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
     document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());

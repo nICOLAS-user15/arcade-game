@@ -4,8 +4,10 @@ import { App } from './app.js';
 import { Game } from './game.js';
 import { MenuUI } from './ui.js';
 import { Intro } from './intro.js';
+import { Installer } from './install.js';
 
 const app = new App();
+new Installer(app);
 const game = new Game(app);
 const menu = new MenuUI(app, game);
 game.menu = menu;
