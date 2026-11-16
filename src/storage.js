@@ -20,6 +20,7 @@ export function defaultSettings(prefersReducedMotion = false) {
     version: SETTINGS_VERSION,
     lang: DEFAULT_LANG,
     sfx: true,
+    music: true,
     haptics: true,
     reduceMotion: prefersReducedMotion,
     dpad: 'auto',

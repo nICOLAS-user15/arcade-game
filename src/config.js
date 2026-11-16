@@ -300,9 +300,17 @@ export function cloneMap(map) {
   return map.map((row) => row.slice());
 }
 
-/** Tile Pac-Man can stand on. Out-of-bounds is walkable only because side tunnels wrap. */
+/**
+ * Tile Pac-Man can stand on. Off the board is walkable only as the straight continuation of a
+ * tunnel (the board edge on that row/column is open); otherwise turning while half outside a
+ * tunnel would let Pac-Man wander off-screen and vanish.
+ */
 export function isPacmanWalkable(map, col, row) {
-  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return true;
+  const offX = col < 0 || col >= COLS;
+  const offY = row < 0 || row >= ROWS;
+  if (offX && offY) return false;
+  if (offX) return isPacmanWalkable(map, col < 0 ? 0 : COLS - 1, row);
+  if (offY) return isPacmanWalkable(map, col, row < 0 ? 0 : ROWS - 1);
   const t = map[row][col];
   return t !== TILE.WALL && t !== TILE.VOID && t !== TILE.DOOR && t !== TILE.HOUSE;
 }

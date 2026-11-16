@@ -167,6 +167,8 @@ export const DICT = {
     'howto.tip.endless': 'Endless mode repeats the stages, each lap a little faster.',
 
     'settings.language': 'Language',
+    'settings.music': 'Music',
+    'settings.music.hint': 'A soundtrack for the menu and every stage',
     'settings.sfx': 'Sound effects',
     'settings.haptics': 'Vibration',
     'settings.haptics.hint': 'Haptic feedback on supported phones',
@@ -359,6 +361,8 @@ export const DICT = {
     'howto.tip.endless': 'O modo infinito repete as fases, cada volta um pouco mais rápida.',
 
     'settings.language': 'Idioma',
+    'settings.music': 'Música',
+    'settings.music.hint': 'Trilha sonora no menu e em cada estágio',
     'settings.sfx': 'Efeitos sonoros',
     'settings.haptics': 'Vibração',
     'settings.haptics.hint': 'Resposta tátil em celulares compatíveis',

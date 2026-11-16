@@ -15,6 +15,7 @@ import { Cutscene } from './cutscene.js';
 import { drawPowerPellet, drawPortal, drawEmoji, pelletPath, getSkin } from './sprites.js';
 import { stageLook, canvasFont, shade } from './themes.js';
 import { HAPTICS } from './audio.js';
+import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
 
@@ -22,6 +23,10 @@ const MODALS = ['pauseModal', 'briefingModal', 'standardModal'];
 const TAU = Math.PI * 2;
 const FRUIT_SECONDS = 11;
 const HIT_STOP = 0.12;
+/** Seconds between the chirps of ghost eyes racing home. */
+const RETREAT_EVERY = 0.16;
+/** The stage music speeds up by up to this much while the last quarter of the pellets is eaten. */
+const FINAL_RUSH_TEMPO = 0.08;
 
 /**
  * Fills the union of all wall tiles, pulled back `inset` px from every corridor, so neighbouring
@@ -84,6 +89,8 @@ export class Game {
 
     this.state = 'MENU';
     this.screen = 'menu';
+    this.app.sound.duckMusic(false);
+    this.app.sound.setMusicTempo(1);
     this.menu = null; // injected by main.js
     this.scale = 1;
     this.mazeCache = null;
@@ -171,7 +178,6 @@ export class Game {
     this.newSession();
     this.app.storage.incrementGamesPlayed();
     this.app.sound.init();
-    this.app.sound.gameStart();
     this.showGameScreen();
     this.beginLevel(true);
   }
@@ -187,6 +193,11 @@ export class Game {
     this.readyTimer = fresh ? 2 : 1.4;
     this.acc = 0;
     this.updatePauseButton();
+    this.warnSlot = 0;
+    this.eyesTimer = 0;
+    this.app.sound.duckMusic(false);
+    this.app.sound.setMusicTempo(1);
+    if (fresh) this.app.sound.playJingle('ready');
     if (fresh) {
       this.app.announce(t('sr.stageStart', { name: t(`phase.${this.phase.id}.name`) }));
       if (this.phase.portals.length) this.hint('portal', 'hint.portal');
@@ -282,6 +293,8 @@ export class Game {
       return;
     }
     this.pacman.step();
+    const p = this.pacman;
+    if (Math.abs(p.x - p.prevX) > LOGICAL_W / 2 && p.y === p.prevY) this.app.sound.whoosh(); // side tunnel wrap
     if (this.state !== 'PLAYING') return; // the stage was cleared on this step
 
     this.checkFruit();
@@ -304,7 +317,40 @@ export class Game {
       if (this.fruit.timer <= 0) this.fruit.active = false;
     }
     if (this.isTunnelTile(tileOf(this.pacman.x), tileOf(this.pacman.y))) this.hint('tunnel', 'hint.tunnel');
+    this.updateAudio();
     this.updateEffects();
+  }
+
+  /** Picks the soundtrack for the moment and plays the looping cues (power running out, eyes going home). */
+  updateAudio() {
+    const sound = this.app.sound;
+    let frightLeft = 0;
+    let eyes = false;
+    for (const g of this.ghosts) {
+      if (g.state === 'FRIGHTENED') frightLeft = Math.max(frightLeft, g.frightenedTimer);
+      else if (g.state === 'EATEN') eyes = true;
+    }
+    sound.playMusic(frightLeft > 0 ? 'power' : STAGE_TRACK[this.phase.id] || 'classic');
+
+    const eaten = 1 - this.pelletsLeft / this.pelletsTotal;
+    sound.setMusicTempo(1 + Math.max(0, (eaten - 0.75) / 0.25) * FINAL_RUSH_TEMPO);
+
+    // Two beeps every half second during the last two seconds of a power-up
+    if (frightLeft > 0 && frightLeft < 2) {
+      const slot = Math.ceil(frightLeft * 2);
+      if (slot !== this.warnSlot) {
+        this.warnSlot = slot;
+        sound.powerWarning();
+      }
+    } else this.warnSlot = 0;
+
+    if (eyes) {
+      this.eyesTimer -= STEP;
+      if (this.eyesTimer <= 0) {
+        sound.retreat();
+        this.eyesTimer = RETREAT_EVERY;
+      }
+    } else this.eyesTimer = 0;
   }
 
   updateEffects() {
@@ -372,6 +418,7 @@ export class Game {
   spawnFruit() {
     this.fruit.active = true;
     this.fruit.timer = FRUIT_SECONDS;
+    this.app.sound.fruitSpawn();
     this.hint('fruit', 'hint.fruit');
   }
 
@@ -392,7 +439,7 @@ export class Game {
     this.ghostCombo++;
     const pts = SCORE.GHOST_BASE * 2 ** (this.ghostCombo - 1);
     this.addScore(pts);
-    this.app.sound.eatGhost();
+    this.app.sound.eatGhost(this.ghostCombo);
     this.app.haptics.play(HAPTICS.ghost);
     this.floaters.push({ text: `+${pts}`, x: ghost.x, y: ghost.y, life: 1, color: '#67e8f9' });
     this.burst(ghost.x, ghost.y, ghost.color, 10);
@@ -404,6 +451,7 @@ export class Game {
     this.deathTime = 0;
     this.pacman.isDying = true;
     this.pacman.deathProgress = 0;
+    this.app.sound.stopMusic();
     this.app.sound.death();
     this.app.haptics.play(HAPTICS.death);
   }
@@ -452,8 +500,8 @@ export class Game {
 
   stageClear() {
     this.state = 'STAGE_CLEAR';
-    this.stageTimer = 1.1;
-    this.app.sound.stageClear();
+    this.stageTimer = 1.5; // long enough for the jingle
+    this.app.sound.playJingle('stageClear');
     this.app.haptics.play(HAPTICS.stageClear);
     this.commitScore();
   }
@@ -479,6 +527,7 @@ export class Game {
       onChomp: () => this.app.sound.bigChomp()
     });
     this.state = 'INTERMISSION';
+    this.app.sound.playMusic('intermission');
     this.hideOverlay();
   }
 
@@ -523,8 +572,8 @@ export class Game {
 
   victory() {
     this.state = 'VICTORY';
-    this.app.sound.stageClear();
     const isRecord = this.commitScore();
+    this.app.sound.playJingle(isRecord ? 'record' : 'victory');
     this.showResult({
       icon: '👑',
       title: t('result.victory'),
@@ -542,6 +591,7 @@ export class Game {
   gameOver() {
     this.state = 'GAMEOVER';
     const isRecord = this.commitScore();
+    this.app.sound.playJingle(isRecord ? 'record' : 'gameOver');
     this.app.announce(t('sr.gameOver', { score: formatNumber(this.score) }));
     const where = t(this.isEndlessView ? 'result.where.level' : 'result.where.stage', { n: this.level });
     this.showResult({
@@ -561,6 +611,8 @@ export class Game {
     this.prevState = this.state;
     this.state = 'PAUSED';
     this.commitScore();
+    this.app.sound.pauseIn();
+    this.app.sound.duckMusic(true);
     this.updatePauseButton();
     this.app.announce(t('sr.paused'));
     this.showOverlayModal('pauseModal');
@@ -570,6 +622,8 @@ export class Game {
     if (this.state !== 'PAUSED') return;
     this.state = this.prevState || 'PLAYING';
     this.acc = 0;
+    this.app.sound.pauseOut();
+    this.app.sound.duckMusic(false);
     this.hideOverlay();
     this.updatePauseButton();
     this.app.announce(t('sr.resumed'));
@@ -596,8 +650,9 @@ export class Game {
   }
 
   toggleSound() {
-    const on = !this.app.settings.sfx;
-    this.app.update({ sfx: on });
+    // The toolbar button mutes or unmutes everything; Settings has separate music / effects switches
+    const on = !(this.app.settings.sfx || this.app.settings.music);
+    this.app.update({ sfx: on, music: on });
     if (on) this.app.sound.init();
     this.app.toast(t(on ? 'toast.soundOn' : 'toast.soundOff'));
   }
@@ -960,7 +1015,7 @@ export class Game {
   }
 
   updateSoundButton() {
-    this.$('btnSound').setAttribute('aria-pressed', String(!!this.app.settings.sfx));
+    this.$('btnSound').setAttribute('aria-pressed', String(!!(this.app.settings.sfx || this.app.settings.music)));
   }
 
   updateFullscreenButton() {

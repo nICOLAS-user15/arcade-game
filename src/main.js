@@ -3,6 +3,7 @@
 import { App } from './app.js';
 import { Game } from './game.js';
 import { MenuUI } from './ui.js';
+import { Intro } from './intro.js';
 
 const app = new App();
 const game = new Game(app);
@@ -10,6 +11,7 @@ const menu = new MenuUI(app, game);
 game.menu = menu;
 menu.show();
 game.updateSoundButton();
+new Intro(app).play();
 
 // Handy for debugging in the browser console
 globalThis.__pacman = { app, game, menu };

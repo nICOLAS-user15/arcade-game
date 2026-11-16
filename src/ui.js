@@ -60,6 +60,7 @@ export class MenuUI {
 
   show() {
     this.root.hidden = false;
+    this.app.sound.playMusic('menu');
     this.refresh();
     this.stars.resize();
     this.startFx();
@@ -165,6 +166,7 @@ export class MenuUI {
     document.querySelectorAll('input[data-setting]').forEach((input) => {
       input.addEventListener('change', () => {
         this.app.update({ [input.dataset.setting]: input.checked });
+        if (input.dataset.setting === 'music' && input.checked) sound.init();
         if (input.dataset.setting === 'sfx' && input.checked) {
           sound.init();
           sound.click();
@@ -178,6 +180,8 @@ export class MenuUI {
 
     // Dialogs: close buttons, backdrop click, tutorial navigation
     document.querySelectorAll('dialog').forEach((dlg) => {
+      // Soft cue whenever a panel opens or closes, however it was triggered
+      new MutationObserver(() => (dlg.open ? sound.open() : sound.close())).observe(dlg, { attributes: true, attributeFilter: ['open'] });
       dlg.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => dlg.close()));
       dlg.addEventListener('click', (e) => {
         if (e.target !== dlg) return;

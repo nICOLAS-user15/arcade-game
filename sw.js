@@ -17,8 +17,11 @@ const APP_SHELL = [
   'src/game.js',
   'src/i18n.js',
   'src/input.js',
+  'src/intro.js',
   'src/main.js',
   'src/menu-fx.js',
+  'src/chiptune.js',
+  'src/songs.js',
   'src/sprites.js',
   'src/storage.js',
   'src/themes.js',
@@ -30,9 +33,26 @@ const APP_SHELL = [
   'assets/fonts/rajdhani-600-latin-ext.woff2',
   'assets/fonts/rajdhani-700-latin.woff2',
   'assets/fonts/rajdhani-700-latin-ext.woff2',
+  'assets/fonts/fredoka-500-700-latin-ext.woff2',
+  'assets/fonts/fredoka-500-700-latin.woff2',
+  'assets/fonts/nunito-500-800-latin-ext.woff2',
+  'assets/fonts/nunito-500-800-latin.woff2',
+  'assets/fonts/silkscreen-400-latin-ext.woff2',
+  'assets/fonts/silkscreen-400-latin.woff2',
+  'assets/fonts/silkscreen-700-latin-ext.woff2',
+  'assets/fonts/silkscreen-700-latin.woff2',
+  'assets/fonts/space-grotesk-500-700-latin-ext.woff2',
+  'assets/fonts/space-grotesk-500-700-latin.woff2',
+  'assets/fonts/vt323-400-latin-ext.woff2',
+  'assets/fonts/vt323-400-latin.woff2',
+  'assets/fonts/space-mono-400-latin-ext.woff2',
+  'assets/fonts/space-mono-400-latin.woff2',
+  'assets/fonts/space-mono-700-latin-ext.woff2',
+  'assets/fonts/space-mono-700-latin.woff2',
   'assets/icons/icon.svg',
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',
+  'assets/icons/icon-maskable-512.png',
   'assets/icons/apple-touch-icon.png'
 ];
 
@@ -63,7 +83,7 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) cache.put(request, response.clone());
           return response;
         })
-        .catch(() => cached);
+        .catch(() => cached || (request.mode === 'navigate' ? cache.match('index.html') : Response.error()));
       return cached || network;
     })
   );

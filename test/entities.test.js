@@ -357,3 +357,32 @@ function interpolateGap(e) {
   if (dx > TILE_SIZE * 1.5 || dy > TILE_SIZE * 1.5) return 0;
   return Math.max(dx, dy);
 }
+
+test('Pac-Man cannot turn off the board while crossing a side tunnel', () => {
+  for (let i = 0; i < PHASES.length; i++) {
+    for (const tn of PHASES[i].tunnels) {
+      for (const side of [DIRS.LEFT, DIRS.RIGHT]) {
+        for (const turn of [DIRS.UP, DIRS.DOWN]) {
+          const g = makeGame(i);
+          const p = g.pacman;
+          // Start on the edge tile of the tunnel, heading out of the board
+          p.x = (side === DIRS.LEFT ? 0 : COLS - 1) * TILE_SIZE + TILE_SIZE / 2;
+          p.y = tn.row * TILE_SIZE + TILE_SIZE / 2;
+          p.dir = side;
+          p.nextDir = side;
+          // Out one side and back in on the other edge tile; past that, real junctions may turn
+          let wrapped = false;
+          for (let s = 0; s < 60; s++) {
+            p.setDirection(turn); // player keeps pressing up/down the whole way through
+            p.step();
+            const col = tileOf(p.x);
+            if (col < 0 || col >= COLS) wrapped = true;
+            else if (wrapped && col !== 0 && col !== COLS - 1) break;
+            assert.equal(tileOf(p.y), tn.row, `stage ${i + 1} row ${tn.row}: left the tunnel row at step ${s}`);
+            assert.ok(p.x > -TILE_SIZE && p.x < (COLS + 1) * TILE_SIZE, `stage ${i + 1}: wandered off the board`);
+          }
+        }
+      }
+    }
+  }
+});

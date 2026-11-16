@@ -9,8 +9,12 @@
 export const DEFAULT_THEME = 'classic';
 export const THEME_IDS = ['classic', 'retro', 'pastel', 'minimal'];
 
-const PIXEL_FONT = { family: '"Press Start 2P", monospace', weight: '', scale: 1 };
-const MONO_FONT = { family: 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace', weight: '700 ', scale: 1.25 };
+// Canvas text (banners, score pop-ups, cutscene titles) uses each theme's display font.
+// `scale` evens out how wide each font is compared with Press Start 2P.
+const ARCADE_FONT = { family: '"Press Start 2P", monospace', weight: '', scale: 1 };
+const PIXEL_FONT = { family: '"Silkscreen", monospace', weight: '', scale: 1.3 };
+const ROUND_FONT = { family: '"Fredoka", "Nunito", sans-serif', weight: '700 ', scale: 1.4 };
+const MONO_FONT = { family: '"Space Mono", ui-monospace, Consolas, monospace', weight: '700 ', scale: 1.25 };
 
 export const THEMES = Object.freeze({
   classic: {
@@ -18,7 +22,7 @@ export const THEMES = Object.freeze({
     chrome: '#000000',
     walls: { style: 'outline', inset: 3.5, width: 2.5, radius: 6 },
     pixel: 1,
-    font: PIXEL_FONT,
+    font: ARCADE_FONT,
     banner: '#ffff00',
     skin: {
       pacman: '#ffff00', glow: true, pellet: '#ffb8ae', pelletShape: 'square', pelletSize: 2.2,
@@ -67,7 +71,7 @@ export const THEMES = Object.freeze({
     chrome: '#171126',
     walls: { style: 'soft', inset: 2, radius: 8, core: 5.5 },
     pixel: 1,
-    font: PIXEL_FONT,
+    font: ROUND_FONT,
     banner: '#ffd76e',
     skin: {
       pacman: '#ffd76e', glow: false, pellet: '#fff1e6', pelletShape: 'round', pelletSize: 2.6,
@@ -124,7 +128,7 @@ export function stageLook(theme, stageIndex) {
   return { ...s, glow: rgba(s.wall, 0.5) };
 }
 
-/** Canvas font string for a theme (Minimal swaps the pixel font for a bold monospace). */
+/** Canvas font string for a theme, sized so every font reads about as large. */
 export function canvasFont(theme, px) {
   const f = theme.font;
   return `${f.weight}${Math.round(px * f.scale)}px ${f.family}`;

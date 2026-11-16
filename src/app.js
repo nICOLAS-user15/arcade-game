@@ -6,7 +6,7 @@
 import { Storage } from './storage.js';
 import { SoundController, Haptics } from './audio.js';
 import { setLang, onLangChange } from './i18n.js';
-import { getTheme } from './themes.js';
+import { getTheme, canvasFont } from './themes.js';
 import { setSkin } from './sprites.js';
 
 export class App {
@@ -33,6 +33,11 @@ export class App {
       this.touchSeen = true;
       this.applySettings();
     }, { capture: true, passive: true });
+
+    // Browsers only allow audio after a user gesture: unlock it on the first one, so the menu music starts
+    const unlock = () => this.sound.init();
+    window.addEventListener('pointerdown', unlock, { once: true, capture: true });
+    window.addEventListener('keydown', unlock, { once: true, capture: true });
 
     setLang(this.settings.lang);
     this.applySettings();
@@ -73,6 +78,7 @@ export class App {
   applySettings() {
     const s = this.settings;
     this.sound.setEnabled(s.sfx);
+    this.sound.setMusicEnabled(s.music);
     this.haptics.setEnabled(s.haptics);
     const root = document.documentElement;
     root.dataset.dpad = this.dpadVisible ? 'on' : 'off';
@@ -80,6 +86,8 @@ export class App {
     const theme = this.theme;
     root.dataset.theme = theme.id;
     setSkin(theme.skin);
+    // The canvas does not trigger web font downloads by itself; ask for the theme's font now
+    document.fonts?.load(canvasFont(theme, 12)).catch(() => {});
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.chrome);
   }
 
