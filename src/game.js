@@ -285,8 +285,8 @@ export class Game {
     if (this.state !== 'PLAYING') return; // the stage was cleared on this step
 
     this.checkFruit();
+    for (const ghost of this.ghosts) ghost.step(); // all ghosts move before collisions, so eating one never freezes the rest
     for (const ghost of this.ghosts) {
-      ghost.step();
       if (ghost.state === 'EATEN' || ghost.state === 'IN_HOUSE') continue;
       if (Math.hypot(this.pacman.x - ghost.x, this.pacman.y - ghost.y) >= TILE_SIZE * 0.75) continue;
       if (ghost.state === 'FRIGHTENED') {
@@ -359,12 +359,14 @@ export class Game {
 
   onPortal(entity) {
     const dest = portalDestination(this.phase.portals, tileOf(entity.x), tileOf(entity.y));
-    if (!dest) return;
+    if (!dest) return false;
     entity.x = dest.col * TILE_SIZE + TILE_SIZE / 2;
     entity.y = dest.row * TILE_SIZE + TILE_SIZE / 2;
-    entity.teleportCooldown = 0.9;
-    this.app.sound.teleport();
-    this.burst(entity.x, entity.y, this.look.wall, 14);
+    if (entity === this.pacman) {
+      this.app.sound.teleport();
+      this.burst(entity.x, entity.y, this.look.wall, 14);
+    }
+    return true;
   }
 
   spawnFruit() {
@@ -700,8 +702,9 @@ export class Game {
           stamp(tex, shape(wl.inset, 0, '#000'), 'destination-in');
           stamp(out, tex);
           stamp(out, edge());
-        } else {
-          stamp(out, shape(wl.inset, 0, look.wall));
+        } else { // 'double': two thin parallel rules, like an architectural plan
+          stamp(out, band(wl.inset, 2, 0, look.wall));
+          stamp(out, band(wl.inset + 5, 1, 0, look.wall));
         }
         break;
       }

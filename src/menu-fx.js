@@ -1,13 +1,53 @@
 /**
- * Animated visuals for the main menu: a drifting neon starfield behind the
- * card and a small "attract mode" lane where Pac-Man and the ghosts take turns
- * chasing each other. With "reduce motion" on, the menu switches to a calm mode
- * (no drifting, scrolling grid or pointer parallax) instead of freezing completely,
- * so it never looks broken. Drawing is skipped while the page is hidden.
+ * Animated visuals for the main menu: a themed background behind the card
+ * (faint scrolling maze, pixel starfield, candy bubbles or a dot matrix) and a small
+ * "attract mode" lane where Pac-Man and the ghosts take turns chasing each other.
+ * With "reduce motion" on, the menu switches to a calm mode (no drifting, scrolling
+ * or pointer parallax) instead of freezing completely, so it never looks broken.
+ * Drawing is skipped while the page is hidden.
  */
 
 import { drawPacman, drawGhost, drawPowerPellet, drawPellet } from './sprites.js';
-import { GHOST_DEFS } from './config.js';
+import { GHOST_DEFS, PHASES, TILE, COLS, ROWS } from './config.js';
+
+const MAZE_TILE = 18;
+
+/** One copy of the first stage's maze as thin outlines, used as a repeating background pattern. */
+function buildMazeTile(color, dotColor) {
+  const T = MAZE_TILE;
+  const map = PHASES[0].map;
+  const c = document.createElement('canvas');
+  c.width = COLS * T;
+  c.height = ROWS * T;
+  const g = c.getContext('2d');
+  const wall = (x, y) => x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === TILE.WALL || map[y][x] === TILE.VOID);
+  const slabs = (inset) => {
+    g.beginPath();
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (!wall(x, y)) continue;
+        const x0 = x * T + (wall(x - 1, y) ? 0 : inset);
+        const x1 = (x + 1) * T - (wall(x + 1, y) ? 0 : inset);
+        const y0 = y * T + (wall(x, y - 1) ? 0 : inset);
+        const y1 = (y + 1) * T - (wall(x, y + 1) ? 0 : inset);
+        g.rect(x0, y0, x1 - x0, y1 - y0);
+      }
+    }
+    g.fill();
+  };
+  g.fillStyle = color;
+  slabs(4);
+  g.globalCompositeOperation = 'destination-out';
+  slabs(5.5);
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = dotColor;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (map[y][x] === TILE.PELLET) g.fillRect(x * T + T / 2 - 1, y * T + T / 2 - 1, 2, 2);
+    }
+  }
+  return c;
+}
 
 /** Floating dots and grid lines that react slightly to the pointer. */
 export class Starfield {
@@ -51,6 +91,14 @@ export class Starfield {
       this.drawBubbles(time, animate, look);
       return;
     }
+    if (look.style === 'maze') {
+      this.drawMaze(time, animate, look);
+      return;
+    }
+    if (look.style === 'dots') {
+      this.drawDots(time, animate, look);
+      return;
+    }
 
     // Perspective grid floor
     ctx.strokeStyle = look.grid;
@@ -90,6 +138,46 @@ export class Starfield {
     }
   }
 
+  /** Classic theme: the arcade maze, very faint, scrolling slowly and fading toward the card. */
+  drawMaze(time, animate, look) {
+    const { ctx, w, h } = this;
+    if (!this.mazePattern || this.mazeColor !== look.maze) {
+      this.mazeColor = look.maze;
+      this.mazePattern = ctx.createPattern(buildMazeTile(look.maze, look.dots), 'repeat');
+    }
+    const off = animate ? (time * 0.008) % (ROWS * MAZE_TILE) : 0;
+    ctx.save();
+    ctx.translate(-w * 0.03, -off);
+    ctx.fillStyle = this.mazePattern;
+    ctx.fillRect(w * 0.03, off, w, h);
+    ctx.restore();
+
+    // Keep the middle (behind the menu card) quieter than the edges
+    const mask = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.65);
+    mask.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+    mask.addColorStop(1, 'rgba(0, 0, 0, 1)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = mask;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+
+  /** Minimal theme: a static dot matrix with a slow diagonal band of light passing through. */
+  drawDots(time, animate, look) {
+    const { ctx, w, h } = this;
+    const gap = 22;
+    const band = animate ? ((time * 0.00006) % 1.6) - 0.3 : -1;
+    for (let y = gap / 2; y < h; y += gap) {
+      for (let x = gap / 2; x < w; x += gap) {
+        const d = (x / w + y / h) / 2;
+        const lift = Math.max(0, 1 - Math.abs(d - band) * 9);
+        ctx.fillStyle = `rgba(${look.star}, ${(0.1 + lift * 0.4).toFixed(3)})`;
+        ctx.fillRect(x - 1, y - 1, 2, 2);
+      }
+    }
+  }
+
   /** Pastel theme: big soft candy-colored bubbles rising slowly, plus a few sparkles. */
   drawBubbles(time, animate, look) {
     const { ctx, w, h } = this;
@@ -102,7 +190,7 @@ export class Starfield {
       const x = s.x * w + (animate ? Math.sin(time * 0.0004 + s.tw) * 24 : 0);
       const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
       const color = look.colors[i % look.colors.length];
-      g.addColorStop(0, `${color}cc`);
+      g.addColorStop(0, `${color}${look.alpha || 'cc'}`);
       g.addColorStop(1, `${color}00`);
       ctx.fillStyle = g;
       ctx.beginPath();

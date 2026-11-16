@@ -11,7 +11,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const HEX = /^#[0-9a-f]{6}$/i;
 const WALL_STYLES = ['outline', 'block', 'soft', 'slab'];
-const SLAB_PATTERNS = ['solid', 'hatch', 'frame', 'groove', 'dots'];
+const SLAB_PATTERNS = ['double', 'hatch', 'frame', 'groove', 'dots'];
 
 test('the theme list and the theme table agree, and the default exists', () => {
   assert.deepEqual(Object.keys(THEMES), THEME_IDS);
@@ -41,8 +41,10 @@ for (const theme of Object.values(THEMES)) {
     assert.ok(theme.skin.pelletSize > 0);
     for (const g of GHOST_DEFS) assert.match(theme.ghosts[g.name], HEX, g.name);
     assert.ok(theme.menu.star);
+    assert.ok(['stars', 'maze', 'bubbles', 'dots'].includes(theme.menu.style), `menu style ${theme.menu.style}`);
     if (theme.menu.style === 'bubbles') assert.ok(theme.menu.colors.every((c) => HEX.test(c)));
-    else assert.ok(theme.menu.grid);
+    if (theme.menu.style === 'stars') assert.ok(theme.menu.grid);
+    if (theme.menu.style === 'maze') assert.ok(theme.menu.maze && theme.menu.dots);
     for (const key of ['bg', 'floor', 'title', 'accent']) assert.match(theme.cutscene[key], HEX, `cutscene.${key}`);
     assert.match(theme.chrome, HEX);
     assert.ok(theme.pixel >= 1);
@@ -58,6 +60,11 @@ for (const theme of Object.values(THEMES)) {
     }
   });
 }
+
+test('every theme has its own menu background', () => {
+  const styles = Object.values(THEMES).map((t) => t.menu.style);
+  assert.equal(new Set(styles).size, styles.length);
+});
 
 test('stage looks wrap around in Endless and derive a glow color', () => {
   const t = THEMES.classic;

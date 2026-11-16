@@ -26,7 +26,8 @@ export class SoundController {
         return;
       }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    // iOS Safari reports 'interrupted' after a call or app switch, not 'suspended'
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
   }
 
   setEnabled(on) {

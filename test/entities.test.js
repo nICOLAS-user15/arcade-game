@@ -36,11 +36,12 @@ function makeGame(phaseIndex, { seed = 1, level = phaseIndex + 1 } = {}) {
     },
     onPortal(entity) {
       const dest = portalDestination(phase.portals, tileOf(entity.x), tileOf(entity.y));
-      if (!dest) return;
+      if (!dest) return false;
       entity.x = dest.col * TILE_SIZE + TILE_SIZE / 2;
       entity.y = dest.row * TILE_SIZE + TILE_SIZE / 2;
-      entity.teleportCooldown = 0.9;
-      game.portalJumps++;
+      if (entity === game.pacman) game.portalJumps++;
+      else game.ghostJumps = (game.ghostJumps || 0) + 1;
+      return true;
     }
   };
   game.pacman = new Pacman(game);
@@ -108,6 +109,54 @@ test('corner portals teleport Pac-Man (stage 3)', () => {
   g.pacman.nextDir = null;
   for (let i = 0; i < 30; i++) g.pacman.step();
   assert.ok(g.portalJumps >= 1, 'a portal jump happened');
+});
+
+for (const [stage, dir, from] of [[2, 'LEFT', [3, 1]], [2, 'RIGHT', [15, 1]], [4, 'LEFT', [3, 1]], [4, 'RIGHT', [15, 1]]]) {
+  test(`stage ${stage + 1}: entering a portal sideways teleports once and walks out of the pocket (${dir})`, () => {
+    const g = makeGame(stage);
+    const p = g.pacman;
+    p.x = from[0] * TILE_SIZE + TILE_SIZE / 2;
+    p.y = from[1] * TILE_SIZE + TILE_SIZE / 2;
+    p.dir = DIRS[dir];
+    p.nextDir = null;
+    for (let i = 0; i < 60 * 4; i++) p.step();
+    assert.equal(g.portalJumps, 1, 'no ping-pong between the two corners');
+    assert.ok(tileOf(p.y) < ROWS - 2, `Pac-Man walked up out of the bottom pocket (row ${tileOf(p.y)})`);
+  });
+}
+
+test('standing still on a portal never teleports again', () => {
+  const g = makeGame(2);
+  const p = g.pacman;
+  const portal = PHASES[2].portals[0];
+  p.x = portal.c2 * TILE_SIZE + TILE_SIZE / 2;
+  p.y = portal.r2 * TILE_SIZE + TILE_SIZE / 2;
+  p.lastTile = portal.r2 * COLS + portal.c2;
+  p.dir = DIRS.LEFT; // a wall: Pac-Man stays on the portal tile
+  p.nextDir = null;
+  for (let i = 0; i < 60 * 5; i++) p.step();
+  assert.equal(g.portalJumps, 0);
+});
+
+test('ghosts go through portals and leave the destination instead of snapping back', () => {
+  const g = makeGame(2);
+  const blinky = g.ghosts[0];
+  blinky.state = 'CHASE';
+  blinky.x = 3 * TILE_SIZE + TILE_SIZE / 2;
+  blinky.y = 1 * TILE_SIZE + TILE_SIZE / 2;
+  blinky.dir = DIRS.LEFT;
+  blinky.lastTurnCol = 3;
+  blinky.lastTurnRow = 1;
+  g.pacman.x = 17 * TILE_SIZE + TILE_SIZE / 2; // lure him across the board
+  g.pacman.y = 15 * TILE_SIZE + TILE_SIZE / 2;
+  let jumpedAt = -1;
+  for (let i = 0; i < 120; i++) {
+    blinky.step();
+    if (g.ghostJumps && jumpedAt < 0) jumpedAt = i;
+    if (jumpedAt >= 0) assert.ok(tileOf(blinky.y) > 10, `step ${i}: Blinky snapped back to row ${tileOf(blinky.y)}`);
+  }
+  assert.equal(g.ghostJumps, 1);
+  assert.ok(tileOf(blinky.y) < ROWS - 2, 'left the pocket around the destination portal');
 });
 
 test('simulation speed is independent of frame rate: movement per step is constant', () => {

@@ -23,7 +23,6 @@ export class App {
     this.sound = new SoundController();
     this.haptics = new Haptics();
     this.listeners = new Set();
-    this.toastTimers = new Set();
 
     // "auto" D-pad follows the primary pointer type, which can change (e.g. a 2-in-1 laptop)
     this.coarseQuery.addEventListener?.('change', () => this.applySettings());
@@ -99,9 +98,8 @@ export class App {
     el.className = `toast ${kind}`.trim();
     el.textContent = message;
     box.appendChild(el);
-    const fade = setTimeout(() => el.classList.add('out'), 2200);
-    const remove = setTimeout(() => el.remove(), 2700);
-    this.toastTimers.add(fade).add(remove);
+    setTimeout(() => el.classList.add('out'), 2200);
+    setTimeout(() => el.remove(), 2700);
   }
 
   /** Polite screen-reader announcement. */

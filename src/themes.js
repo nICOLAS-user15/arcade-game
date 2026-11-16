@@ -26,7 +26,7 @@ export const THEMES = Object.freeze({
       flash: '#ffffff', flashFace: '#ff0000', pupil: '#2121ff', door: '#ffb8ff'
     },
     ghosts: { Blinky: '#ff0000', Pinky: '#ffb8ff', Inky: '#00ffff', Clyde: '#ffb852' },
-    menu: { style: 'stars', grid: 'rgba(33, 33, 222, 0.3)', star: '255, 255, 255', square: false },
+    menu: { style: 'maze', maze: 'rgba(52, 52, 255, 0.34)', dots: 'rgba(255, 184, 174, 0.22)', star: '255, 255, 255' },
     cutscene: { bg: '#000000', floor: '#2121de', title: '#ffff00', accent: '#00ffff' },
     stages: [
       { wall: '#2121de', bg: '#000000' },
@@ -64,7 +64,7 @@ export const THEMES = Object.freeze({
 
   pastel: {
     id: 'pastel',
-    chrome: '#ffe3ec',
+    chrome: '#171126',
     walls: { style: 'soft', inset: 2, radius: 8, core: 5.5 },
     pixel: 1,
     font: PIXEL_FONT,
@@ -76,7 +76,7 @@ export const THEMES = Object.freeze({
       portalRing: '#9be7d8', portalCore: '#ff9ab0'
     },
     ghosts: { Blinky: '#ff6b81', Pinky: '#ffb3e6', Inky: '#7fe0ef', Clyde: '#ffc285' },
-    menu: { style: 'bubbles', colors: ['#ffb3c7', '#c3a6ff', '#9be7d8', '#ffd76e', '#8fb4ff'], star: '255, 255, 255' },
+    menu: { style: 'bubbles', alpha: '55', colors: ['#ffb3c7', '#c3a6ff', '#9be7d8', '#ffd76e', '#8fb4ff'], star: '255, 255, 255' },
     cutscene: { bg: '#1b1530', floor: '#ff9ab0', title: '#ffd76e', accent: '#9be7d8' },
     stages: [
       { wall: '#8fb4ff', core: '#d3e2ff', bg: '#1a1a33' },
@@ -101,11 +101,11 @@ export const THEMES = Object.freeze({
       portalRing: '#ffffff', portalCore: '#7a7a7a'
     },
     ghosts: { Blinky: '#e05a5a', Pinky: '#e39acb', Inky: '#6cc3cf', Clyde: '#e0a868' },
-    menu: { style: 'stars', grid: 'rgba(255, 255, 255, 0.08)', star: '255, 255, 255', square: true },
+    menu: { style: 'dots', star: '255, 255, 255' },
     cutscene: { bg: '#000000', floor: '#ffffff', title: '#ffffff', accent: '#bdbdbd' },
     // Monochrome on purpose: each stage gets a different raw concrete-like wall texture
     stages: [
-      { wall: '#ffffff', bg: '#000000', pattern: 'solid' },
+      { wall: '#ffffff', bg: '#000000', pattern: 'double' },
       { wall: '#ffffff', bg: '#000000', pattern: 'hatch' },
       { wall: '#ffffff', bg: '#000000', pattern: 'frame' },
       { wall: '#ffffff', bg: '#000000', pattern: 'groove' },

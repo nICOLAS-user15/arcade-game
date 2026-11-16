@@ -170,7 +170,7 @@ export class MenuUI {
           sound.click();
         }
         if (input.dataset.setting === 'haptics' && input.checked) this.app.haptics.play(30);
-        if (input.dataset.setting === 'reduceMotion') this.startFx();
+        if (input.dataset.setting === 'reduceMotion' && !this.root.hidden) this.startFx();
       });
     });
 

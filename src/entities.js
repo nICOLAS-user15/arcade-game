@@ -5,7 +5,10 @@
  * They only talk to the game through a small interface, which keeps them
  * unit-testable without a browser:
  *   game.map, game.params, game.pacman, game.isTunnelTile(col,row),
- *   game.onPellet(col,row), game.onPortal(entity)
+ *   game.onPellet(col,row), game.onPortal(entity) -> true when the entity was moved
+ *
+ * Portals fire when an entity steps onto the tile, never while it stands on it, so a
+ * player who stops on the destination is not bounced back and forth.
  */
 
 import { TILE_SIZE, COLS, ROWS, STEP, TILE, DIRS, SPAWN, isPacmanWalkable } from './config.js';
@@ -23,10 +26,10 @@ const FRIGHTENED_SPEED = 0.6;
 const EATEN_SPEED = 1.8;
 const TUNNEL_SPEED = 0.55;
 const HOUSE_EXIT_SPEED = 2.8;
-const PORTAL_COOLDOWN = 0.9;
 
 const CENTER = (n) => n * TILE_SIZE + HALF;
 export const tileOf = (px) => Math.floor(px / TILE_SIZE);
+const tileKey = (col, row) => row * COLS + col;
 export const opposite = (d) => (d === DIRS.UP ? DIRS.DOWN : d === DIRS.DOWN ? DIRS.UP : d === DIRS.LEFT ? DIRS.RIGHT : DIRS.LEFT);
 const isOpposite = (a, b) => a.x === -b.x && a.y === -b.y;
 
@@ -67,7 +70,7 @@ export class Pacman {
     this.mouthOpening = true;
     this.isDying = false;
     this.deathProgress = 0;
-    this.teleportCooldown = 0;
+    this.lastTile = tileKey(SPAWN.pacman.col, SPAWN.pacman.row);
     this.isMoving = false;
   }
 
@@ -90,7 +93,6 @@ export class Pacman {
     this.prevX = this.x;
     this.prevY = this.y;
     if (this.isDying) return;
-    if (this.teleportCooldown > 0) this.teleportCooldown -= STEP;
     wrapAround(this);
 
     const col = tileOf(this.x);
@@ -107,9 +109,27 @@ export class Pacman {
 
     const nowCol = tileOf(this.x);
     const nowRow = tileOf(this.y);
-    if (nowCol >= 0 && nowCol < COLS && nowRow >= 0 && nowRow < ROWS) {
-      if (this.game.map[nowRow][nowCol] === TILE.PORTAL && this.teleportCooldown <= 0) this.game.onPortal(this);
-      this.game.onPellet(nowCol, nowRow);
+    if (nowCol < 0 || nowCol >= COLS || nowRow < 0 || nowRow >= ROWS) return; // inside a tunnel
+    const entered = tileKey(nowCol, nowRow) !== this.lastTile;
+    this.lastTile = tileKey(nowCol, nowRow);
+    if (entered && this.game.map[nowRow][nowCol] === TILE.PORTAL && this.game.onPortal(this)) {
+      this.lastTile = tileKey(tileOf(this.x), tileOf(this.y));
+      this.leavePortal();
+      return;
+    }
+    this.game.onPellet(nowCol, nowRow);
+  }
+
+  /** Corner portals sit in dead-end pockets: come out already heading through the only opening. */
+  leavePortal() {
+    const col = tileOf(this.x);
+    const row = tileOf(this.y);
+    const open = (d) => d && this.canWalk(col + d.x, row + d.y);
+    if (open(this.dir)) return;
+    const exit = [this.nextDir, DIRS.UP, DIRS.DOWN, DIRS.LEFT, DIRS.RIGHT].find(open);
+    if (exit) {
+      this.dir = exit;
+      this.nextDir = null;
     }
   }
 
@@ -203,7 +223,7 @@ export class Ghost {
     this.frightenedTimer = 0;
     this.timer = 0;
     this.wave = 0;
-    this.teleportCooldown = 0;
+    this.lastTile = -1;
     this.lastTurnCol = startCol;
     this.lastTurnRow = startRow;
 
@@ -229,7 +249,6 @@ export class Ghost {
     this.prevY = this.y;
     this.timer += STEP;
     this.wave += 0.16;
-    if (this.teleportCooldown > 0) this.teleportCooldown -= STEP;
 
     if (this.state === 'IN_HOUSE') {
       if (this.timer < this.releaseTime) {
@@ -265,7 +284,18 @@ export class Ghost {
     const row = tileOf(this.y);
     if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return; // inside a tunnel
 
-    if (this.game.map[row][col] === TILE.PORTAL && this.teleportCooldown <= 0) this.game.onPortal(this);
+    const entered = tileKey(col, row) !== this.lastTile;
+    this.lastTile = tileKey(col, row);
+    if (entered && this.game.map[row][col] === TILE.PORTAL && this.game.onPortal(this)) {
+      // Pick a way out of the destination right away; the old tile's center no longer applies
+      const c = tileOf(this.x);
+      const r = tileOf(this.y);
+      this.lastTile = tileKey(c, r);
+      this.lastTurnCol = c;
+      this.lastTurnRow = r;
+      this.chooseDirection(c, r);
+      return;
+    }
 
     // Decide a new direction once per tile, when crossing its center
     const cx = CENTER(col);

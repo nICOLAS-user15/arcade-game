@@ -232,7 +232,7 @@ export class Input {
     if (a) {
       // A / Cross: collect cutscene bonus, or press the focused modal button
       if (g.state === 'INTERMISSION') g.onBoardTap(...this.boardCenter());
-      else document.activeElement?.click?.();
+      else if (g.overlayOpen) document.activeElement?.click?.();
     }
     if (b && g.state === 'PAUSED') g.resume();
   }

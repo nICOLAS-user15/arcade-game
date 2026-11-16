@@ -264,7 +264,7 @@ kbd {
 .swatch[data-sw='classic'] { --sw-bg: #000; --sw-wall: #2121de; --sw-pac: #ffff00; --sw-dot: #ffb8ae; border-radius: 7px; }
 .swatch[data-sw='retro'] { --sw-bg: #000; --sw-wall: #2038ec; --sw-pac: #f8d800; --sw-dot: #fca044; border-width: 3px; border-radius: 0; box-shadow: inset 1px 1px 0 #8fa0ff; }
 .swatch[data-sw='retro']::after { border-radius: 0; }
-.swatch[data-sw='pastel'] { --sw-bg: #2a2140; --sw-wall: #ff9aa8; --sw-pac: #ffd76e; --sw-dot: #fff1e6; border-width: 3px; border-radius: 9px; box-shadow: 0 0 0 2px #ffffff; }
+.swatch[data-sw='pastel'] { --sw-bg: #2a2140; --sw-wall: #ff9aa8; --sw-pac: #ffd76e; --sw-dot: #fff1e6; border-width: 3px; border-radius: 9px; }
 .swatch[data-sw='minimal'] { --sw-bg: #000; --sw-wall: #fff; --sw-pac: #fff; --sw-dot: #fff; border-width: 3px; border-radius: 0; box-shadow: 3px 3px 0 #fff; }
 .swatch[data-sw='minimal']::after { border-radius: 50%; }
 
@@ -654,69 +654,47 @@ html[data-theme='retro'] #gameCanvas { image-rendering: pixelated; }
 
 html[data-theme='retro'] .power-bar i { background: #3cbcfc; }
 
-/* Pastel: a light candy "handheld console". Cream shell, bubbly pills, sticker logo,
-   and the game shown on dark rounded screens (the lane, the board and the tutorial sprites). */
+/* Pastel: "candy night". Same dark family as the other themes, but with its own shapes:
+   bubbly pill controls, a sticker logo, floating bubbles and the attract lane on a rounded screen. */
 html[data-theme='pastel'] {
-  color-scheme: light;
-  --bg: #ffe9f0; --bg-2: #eee6ff; --screen: #2a2140;
-  --panel: rgba(255, 255, 255, 0.8); --panel-solid: #fff8fb; --panel-2: #fdf0f6;
-  --line: #f3cfe0; --text: #3b2547; --muted: #85699a;
-  --yellow: #ff6f9c; --yellow-deep: #d9457a; --blue: #a98bff; --cyan: #2fa596;
-  --accent-text: #ffffff; --btn-text: #ffffff; --danger: #e0406a; --good: #23946c;
+  --bg: #171126; --bg-2: #2a1d40; --screen: #120d1f;
+  --panel: rgba(42, 30, 64, 0.86); --panel-solid: #2a1e40; --panel-2: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 186, 214, 0.26); --text: #fff4f8; --muted: #cfbdd9;
+  --yellow: #ff8fb1; --yellow-deep: #c95a82; --blue: #b79cff; --cyan: #9be7d8;
+  --accent-text: #22123a; --btn-text: #2e0c1f;
 }
-html[data-theme='pastel'] body { background: linear-gradient(160deg, #ffe3ec 0%, #efe7ff 55%, #dcf3ff 100%); }
-html[data-theme='pastel'] :focus-visible,
-html[data-theme='pastel'] input:focus-visible + .switch { outline-color: #7a4fd6; }
+html[data-theme='pastel'] body { background: radial-gradient(ellipse at 30% 20%, #3a2552 0%, transparent 60%), radial-gradient(ellipse at 80% 90%, #1d3045 0%, transparent 55%), var(--bg); }
 html[data-theme='pastel'] .menu-card {
-  border: 3px solid #ffffff; border-radius: 40px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 243, 249, 0.85));
-  box-shadow: 0 8px 0 #f3cfe0, 0 30px 70px rgba(150, 95, 185, 0.28);
+  border: 2px solid rgba(255, 186, 214, 0.35); border-radius: 36px;
+  box-shadow: 0 6px 0 rgba(255, 143, 177, 0.25), 0 30px 70px rgba(0, 0, 0, 0.45), 0 0 80px rgba(183, 156, 255, 0.15);
 }
 html[data-theme='pastel'] .logo-pac,
 html[data-theme='pastel'] .logo-man {
-  text-shadow: 3px 0 #fff, -3px 0 #fff, 0 3px #fff, 0 -3px #fff, 2px 2px #fff, -2px -2px #fff, 2px -2px #fff, -2px 2px #fff, 0 8px 0 var(--sticker);
+  text-shadow: 2px 0 #fff4f8, -2px 0 #fff4f8, 0 2px #fff4f8, 0 -2px #fff4f8, 0 7px 0 var(--sticker);
 }
-html[data-theme='pastel'] .logo-pac { --sticker: #f6b7cc; color: #ff6f9c; }
-html[data-theme='pastel'] .logo-man { --sticker: #c8d4ff; color: #7f9cff; animation: none; }
-html[data-theme='pastel'] .tagline { color: var(--muted); }
-html[data-theme='pastel'] .lane { padding: 6px 8px; background: var(--screen); border-radius: 20px; box-shadow: inset 0 0 0 4px #ffffff, 0 5px 0 var(--line); }
+html[data-theme='pastel'] .logo-pac { --sticker: #8e3b5e; color: #ff8fb1; }
+html[data-theme='pastel'] .logo-man { --sticker: #4b3d8c; color: #a8bcff; animation: none; }
+html[data-theme='pastel'] .lane { padding: 6px 8px; background: var(--screen); border-radius: 20px; box-shadow: inset 0 0 0 2px rgba(255, 186, 214, 0.3); }
 html[data-theme='pastel'] .btn-primary { border-radius: 999px; }
-html[data-theme='pastel'] .menu-lang { background: #fff; border: 2px solid var(--line); border-radius: 999px; }
+html[data-theme='pastel'] .menu-lang { border-radius: 999px; }
 html[data-theme='pastel'] .lang-btn { border-radius: 999px; }
-html[data-theme='pastel'] .segmented { background: #ffffff; border: 2px solid var(--line); border-radius: 999px; }
+html[data-theme='pastel'] .segmented { border-radius: 999px; }
 html[data-theme='pastel'] .segmented button { border-radius: 999px; }
 html[data-theme='pastel'] .segmented.themes { border-radius: 26px; }
 html[data-theme='pastel'] .segmented.themes button { border-radius: 20px; }
-html[data-theme='pastel'] .segmented button:not([aria-checked='true']):hover { color: var(--text); background: #fdeff5; }
-html[data-theme='pastel'] .segmented button[aria-checked='true'] { box-shadow: 0 3px 0 rgba(90, 50, 140, 0.25); }
-html[data-theme='pastel'] :is(.btn-ghost, .icon-btn) { background: #ffffff; border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+html[data-theme='pastel'] .segmented button[aria-checked='true'] { box-shadow: 0 3px 0 #7a5fd0, 0 0 18px rgba(183, 156, 255, 0.4); }
 html[data-theme='pastel'] .btn-ghost { border-radius: 22px; }
 html[data-theme='pastel'] .icon-btn { border-radius: 16px; }
-html[data-theme='pastel'] :is(.btn-ghost, .icon-btn):hover { background: #fff3f8; border-color: #ffb3c7; }
-html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(1) svg { color: #ff6f9c; }
-html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(2) svg { color: #e0a21b; }
-html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(3) svg { color: #2fa596; }
-html[data-theme='pastel'] .best-line { color: var(--yellow-deep); }
-html[data-theme='pastel'] :is(.stat, .lives, .stage-badge) { border: 2px solid var(--line); border-radius: 18px; }
-html[data-theme='pastel'] .stage-badge { background: #ffffff; box-shadow: 0 4px 0 color-mix(in srgb, var(--phase) 45%, #fff); }
-html[data-theme='pastel'] .stage-name { color: var(--text); }
-html[data-theme='pastel'] .board { border-radius: 26px; box-shadow: 0 0 0 3px #ffffff, 0 4px 0 3px var(--line), 0 20px 40px rgba(150, 95, 185, 0.28); }
-html[data-theme='pastel'] .life-icon { background: #ffbf3c; }
-html[data-theme='pastel'] .dpad-btn { color: #a98bff; background: #ffffff; border: 2px solid var(--line); border-radius: 20px; box-shadow: 0 5px 0 var(--line); }
-html[data-theme='pastel'] .coach { color: #fff; background: rgba(59, 37, 71, 0.92); border-color: #ffb3c7; box-shadow: none; }
-html[data-theme='pastel'] :is(.modal, .dialog) { border: 3px solid #fff; border-radius: 26px; }
-html[data-theme='pastel'] .modal h2 { text-shadow: none; }
-html[data-theme='pastel'] .briefing-badge { color: var(--yellow-deep); }
-html[data-theme='pastel'] .bonus-line { color: #8a5a00; background: #fff4d6; border-color: #f2c96b; }
-html[data-theme='pastel'] .bonus-line b { color: #b07400; }
-html[data-theme='pastel'] #btnStartPhase { color: var(--text); text-shadow: none; }
+html[data-theme='pastel'] :is(.btn-ghost, .icon-btn):hover { background: rgba(255, 143, 177, 0.16); border-color: rgba(255, 186, 214, 0.6); }
+html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(1) svg { color: #ff8fb1; }
+html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(2) svg { color: #ffd76e; }
+html[data-theme='pastel'] .menu-links .btn-ghost:nth-child(3) svg { color: #9be7d8; }
+html[data-theme='pastel'] :is(.stat, .lives, .stage-badge) { border-radius: 18px; }
+html[data-theme='pastel'] .board { border-radius: 26px; }
+html[data-theme='pastel'] .life-icon { background: #ffd76e; }
+html[data-theme='pastel'] .dpad-btn { color: #b79cff; border-radius: 20px; }
+html[data-theme='pastel'] :is(.modal, .dialog) { border-radius: 26px; }
 html[data-theme='pastel'] :is(.sprite-card, .ghost-list li) canvas { background: var(--screen); border-radius: 14px; }
-html[data-theme='pastel'] .g-blinky { color: #e0406a; }
-html[data-theme='pastel'] .g-pinky { color: #c64ea4; }
-html[data-theme='pastel'] .g-inky { color: #1f93a8; }
-html[data-theme='pastel'] .g-clyde { color: #cf7a1f; }
-html[data-theme='pastel'] .switch { background: #ecd9e6; }
-html[data-theme='pastel'] .dots i { background: #ecd9e6; }
 html[data-theme='pastel'] .power-bar i { background: linear-gradient(90deg, #9be7d8, #ff9ab0); }
 
 /* Minimal: brutalist black and white. Hard edges, solid white rules, monospace type, offset shadows, no glow. */
