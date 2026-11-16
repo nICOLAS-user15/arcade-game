@@ -86,8 +86,9 @@ export class MenuUI {
   }
 
   drawFx(ts) {
-    this.stars.draw(ts, this.app.reduceMotion);
-    this.lane.draw(ts);
+    const theme = this.app.theme;
+    this.stars.draw(ts, this.app.reduceMotion, theme.menu);
+    this.lane.draw(ts, theme);
   }
 
   // ------------------------------------------------------------ dynamic text and state
@@ -96,6 +97,7 @@ export class MenuUI {
     const s = this.app.settings;
     setChecked(this.$('modePicker'), (r) => r.dataset.mode === s.mode);
     setChecked(this.$('diffPicker'), (r) => r.dataset.diff === s.difficulty);
+    setChecked(this.$('themePicker'), (r) => r.dataset.themeId === this.app.theme.id);
     setChecked(this.$('langPicker'), (r) => r.dataset.lang === s.lang);
     setChecked(this.$('dpadPicker'), (r) => r.dataset.dpad === s.dpad);
     this.root.querySelectorAll('.lang-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === s.lang)));
@@ -105,6 +107,7 @@ export class MenuUI {
     hint.textContent = t(hint.dataset.i18n);
     const d = DIFFICULTIES[s.difficulty];
     this.$('diffHint').textContent = t(`diff.${d.id}.hint`, { lives: d.lives });
+    this.$('themeHint').textContent = t(`theme.${this.app.theme.id}.hint`);
 
     const best = this.app.storage.best(s.mode, s.difficulty).score;
     this.$('bestLine').textContent = t('menu.best', {
@@ -149,6 +152,11 @@ export class MenuUI {
       sound.init();
       sound.click();
       this.app.update({ difficulty: btn.dataset.diff });
+    });
+    bindRadioGroup($('themePicker'), (btn) => {
+      sound.init();
+      sound.click();
+      this.app.update({ theme: btn.dataset.themeId });
     });
     bindRadioGroup($('langPicker'), (btn) => this.setLanguage(btn.dataset.lang));
     bindRadioGroup($('dpadPicker'), (btn) => this.app.update({ dpad: btn.dataset.dpad }));
@@ -196,6 +204,7 @@ export class MenuUI {
         $('btnPlay'),
         $('modePicker').querySelector('[aria-checked="true"]'),
         $('diffPicker').querySelector('[aria-checked="true"]'),
+        $('themePicker').querySelector('[aria-checked="true"]'),
         $('btnHowTo'),
         $('btnScores'),
         $('btnSettings')
@@ -312,7 +321,7 @@ export class MenuUI {
       } else if (kind === 'scared') {
         drawGhost(ctx, c, c, size * 0.34, { color: '#fff', state: 'scared', wave: 0 });
       } else if (ghost) {
-        drawGhost(ctx, c, c, size * 0.36, { color: ghost.color, dx: 1, wave: 0 });
+        drawGhost(ctx, c, c, size * 0.36, { color: this.app.theme.ghosts[ghost.name], dx: 1, wave: 0 });
       }
     });
   }

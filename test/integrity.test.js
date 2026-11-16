@@ -53,7 +53,7 @@ test('every t("key") call in the scripts uses an existing key', () => {
 
 test('every dictionary key is used somewhere (no dead translations)', () => {
   const sources = srcFiles.map((f) => read(`src/${f}`)).join('\n') + html;
-  const dynamicPrefixes = ['phase.', 'diff.', 'mode.', 'dir.', 'ghost.'];
+  const dynamicPrefixes = ['phase.', 'diff.', 'mode.', 'dir.', 'ghost.', 'theme.'];
   const unused = Object.keys(DICT.en).filter((key) => {
     if (dynamicPrefixes.some((p) => key.startsWith(p))) return false; // built at runtime
     return !sources.includes(`'${key}'`) && !sources.includes(`"${key}"`);

@@ -12,7 +12,8 @@ import {
 } from './config.js';
 import { Pacman, Ghost, tileOf } from './entities.js';
 import { Cutscene } from './cutscene.js';
-import { drawPowerPellet, drawPortal, drawEmoji } from './sprites.js';
+import { drawPowerPellet, drawPortal, drawEmoji, pelletPath, getSkin } from './sprites.js';
+import { stageLook, canvasFont, shade } from './themes.js';
 import { HAPTICS } from './audio.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
@@ -21,6 +22,56 @@ const MODALS = ['pauseModal', 'briefingModal', 'standardModal'];
 const TAU = Math.PI * 2;
 const FRUIT_SECONDS = 11;
 const HIT_STOP = 0.12;
+
+/**
+ * Fills the union of all wall tiles, pulled back `inset` px from every corridor, so neighbouring
+ * tiles merge into continuous rounded shapes instead of a grid of squares.
+ */
+function paintWallShape(g, map, inset, radius, color) {
+  const T = TILE_SIZE;
+  const wall = (c, r) => c >= 0 && c < COLS && r >= 0 && r < ROWS && (map[r][c] === TILE.WALL || map[r][c] === TILE.VOID);
+  g.fillStyle = color;
+  g.beginPath();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!wall(c, r)) continue;
+      const l = wall(c - 1, r);
+      const rt = wall(c + 1, r);
+      const u = wall(c, r - 1);
+      const d = wall(c, r + 1);
+      const x0 = c * T + (l ? 0 : inset);
+      const x1 = (c + 1) * T - (rt ? 0 : inset);
+      const y0 = r * T + (u ? 0 : inset);
+      const y1 = (r + 1) * T - (d ? 0 : inset);
+      if (radius > 0 && g.roundRect) {
+        g.roundRect(x0, y0, x1 - x0, y1 - y0, [!l && !u ? radius : 0, !rt && !u ? radius : 0, !rt && !d ? radius : 0, !l && !d ? radius : 0]);
+      } else {
+        g.rect(x0, y0, x1 - x0, y1 - y0);
+      }
+    }
+  }
+  g.fill();
+  if (inset <= 0) return;
+
+  // Inner corners: keep the same distance from a corridor corner that touches the wall only diagonally
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!wall(c, r)) continue;
+      for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        if (!wall(c + dx, r) || !wall(c, r + dy) || wall(c + dx, r + dy)) continue;
+        const cx = (c + (dx > 0 ? 1 : 0)) * T;
+        const cy = (r + (dy > 0 ? 1 : 0)) * T;
+        g.moveTo(cx + inset, cy);
+        g.arc(cx, cy, inset, 0, TAU);
+      }
+    }
+  }
+  g.fill();
+  g.restore();
+}
 
 export class Game {
   constructor(app) {
@@ -65,6 +116,10 @@ export class Game {
     return phaseForLevel(this.level);
   }
 
+  get theme() {
+    return this.app.theme;
+  }
+
   get isEndlessView() {
     return this.endless || this.level > PHASE_COUNT;
   }
@@ -106,7 +161,7 @@ export class Game {
 
     this.pacman = new Pacman(this);
     this.ghosts = GHOST_DEFS.map((def, i) => new Ghost(this, def, this.params.ghostReleases[i]));
-    this.applyTheme();
+    this.applyStageLook();
     this.updateStage();
     this.updatePowerBar();
   }
@@ -309,7 +364,7 @@ export class Game {
     entity.y = dest.row * TILE_SIZE + TILE_SIZE / 2;
     entity.teleportCooldown = 0.9;
     this.app.sound.teleport();
-    this.burst(entity.x, entity.y, this.phase.wallColor, 14);
+    this.burst(entity.x, entity.y, this.look.wall, 14);
   }
 
   spawnFruit() {
@@ -413,6 +468,7 @@ export class Game {
     const variant = ((this.level - 1) % 4) + 1;
     this.cutscene = new Cutscene(variant, this.level, {
       reduceMotion: this.app.reduceMotion,
+      theme: this.theme,
       onBonus: (pts) => {
         this.addScore(pts);
         this.app.sound.bonusCoin();
@@ -448,9 +504,10 @@ export class Game {
     $('briefingBonusPts').textContent = `+${formatNumber(bonus)}`;
     $('briefingBonusPts').parentElement.hidden = bonus === 0;
 
+    const nextLook = stageLook(this.theme, (next - 1) % PHASE_COUNT);
     const modal = $('briefingModal');
-    modal.style.setProperty('--next', ph.wallColor);
-    modal.style.setProperty('--next-glow', ph.glowColor);
+    modal.style.setProperty('--next', nextLook.wall);
+    modal.style.setProperty('--next-glow', nextLook.glow);
     const btn = $('btnStartPhase');
     btn.textContent = t(this.endless || next > PHASE_COUNT ? 'briefing.enterLevel' : 'briefing.enterStage', { n: next });
     this.showOverlayModal('briefingModal');
@@ -566,35 +623,95 @@ export class Game {
     this.scale = w / LOGICAL_W;
   }
 
-  /** Walls never change during a stage, so they are painted once into an offscreen canvas. */
-  buildMazeCache() {
-    const c = document.createElement('canvas');
-    c.width = this.canvas.width;
-    c.height = this.canvas.height;
-    const g = c.getContext('2d');
-    g.setTransform(this.scale, 0, 0, this.scale, 0, 0);
-    const ph = this.phase;
+  /**
+   * Walls never change during a stage, so they are painted once into an offscreen canvas.
+   * Wall tiles are merged into continuous shapes (see paintWallShape) and each theme decides how
+   * to paint them: arcade outline, 8-bit bevelled blocks, neon tubes, soft candy or a hairline.
+   */
+  buildMazeCache(scale) {
+    const w = Math.round(LOGICAL_W * scale);
+    const h = Math.round(LOGICAL_H * scale);
+    const layer = () => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d');
+      g.setTransform(scale, 0, 0, scale, 0, 0);
+      return { c, g };
+    };
+    const shape = (inset, radius, color) => {
+      const L = layer();
+      paintWallShape(L.g, this.map, inset, radius, color);
+      return L;
+    };
+    const stamp = (target, source, op = 'source-over', dx = 0, dy = 0) => {
+      target.g.save();
+      target.g.setTransform(1, 0, 0, 1, 0, 0);
+      target.g.globalCompositeOperation = op;
+      target.g.drawImage(source.c, dx * scale, dy * scale);
+      target.g.restore();
+    };
+    const band = (inset, width, radius, color) => {
+      const outer = shape(inset, radius, color);
+      stamp(outer, shape(inset + width, Math.max(0, radius - width), '#000'), 'destination-out');
+      return outer;
+    };
+
+    const out = layer();
+    const look = this.look;
+    const wl = this.theme.walls;
+    switch (wl.style) {
+      case 'block': {
+        // 8-bit bevel: light rim top-left, dark rim bottom-right, flat face in the middle
+        const blocks = shape(wl.inset, 0, shade(look.wall, 0.45));
+        stamp(blocks, shape(wl.inset, 0, shade(look.wall, -0.5)), 'source-atop', 2, 2);
+        stamp(blocks, shape(wl.inset + 2, 0, look.wall), 'source-atop');
+        stamp(out, blocks);
+        break;
+      }
+      case 'soft':
+        stamp(out, shape(wl.inset, wl.radius, look.wall));
+        stamp(out, shape(wl.core, Math.max(0, wl.radius - (wl.core - wl.inset)), look.core));
+        break;
+      case 'neon': {
+        stamp(out, shape(wl.inset, wl.radius, look.fill));
+        const tube = band(wl.inset, wl.width, wl.radius, look.wall);
+        out.g.save();
+        out.g.shadowColor = look.wall;
+        out.g.shadowBlur = 7 * scale;
+        stamp(out, tube);
+        out.g.restore();
+        stamp(out, tube);
+        break;
+      }
+      case 'line':
+        stamp(out, shape(wl.inset, wl.radius, look.fill));
+        stamp(out, band(wl.inset, wl.width, wl.radius, look.wall));
+        break;
+      default: // 'outline'
+        stamp(out, band(wl.inset, wl.width, wl.radius, look.wall));
+    }
+
+    const g = out.g;
+    g.fillStyle = getSkin().door;
     for (let r = 0; r < ROWS; r++) {
       for (let col = 0; col < COLS; col++) {
-        const tile = this.map[r][col];
-        const x = col * TILE_SIZE;
-        const y = r * TILE_SIZE;
-        if (tile === TILE.WALL) {
-          g.fillStyle = ph.innerWall;
-          g.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          g.strokeStyle = ph.wallColor;
-          g.lineWidth = 2;
-          g.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-          g.strokeStyle = ph.glowColor;
-          g.lineWidth = 1;
-          g.strokeRect(x + 3, y + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-        } else if (tile === TILE.DOOR) {
-          g.fillStyle = '#ffb8ff';
-          g.fillRect(x, y + TILE_SIZE / 2 - 2, TILE_SIZE, 4);
-        }
+        if (this.map[r][col] === TILE.DOOR) g.fillRect(col * TILE_SIZE, r * TILE_SIZE + TILE_SIZE / 2 - 2, TILE_SIZE, 4);
       }
     }
-    return c;
+    return out.c;
+  }
+
+  /** Offscreen canvas for themes that draw the board at a lower resolution (chunky pixels). */
+  lowResBuffer(pixel) {
+    const w = Math.round(LOGICAL_W / pixel);
+    const h = Math.round(LOGICAL_H / pixel);
+    if (!this.lowRes || this.lowRes.width !== w || this.lowRes.height !== h) {
+      this.lowRes = document.createElement('canvas');
+      this.lowRes.width = w;
+      this.lowRes.height = h;
+    }
+    return this.lowRes;
   }
 
   render() {
@@ -607,9 +724,31 @@ export class Game {
     if (!this.map) return;
 
     const now = performance.now();
-    ctx.fillStyle = this.phase.bgColor;
+    const pixel = this.theme.pixel || 1;
+    if (pixel > 1) {
+      const low = this.lowResBuffer(pixel);
+      const lctx = low.getContext('2d');
+      lctx.setTransform(1 / pixel, 0, 0, 1 / pixel, 0, 0);
+      this.drawScene(lctx, now, 1 / pixel);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(low, 0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    } else {
+      this.drawScene(ctx, now, this.scale);
+    }
+    this.drawTexts(ctx, now);
+  }
+
+  /** Everything on the board except text, drawn in logical coordinates. */
+  drawScene(ctx, now, scale) {
+    ctx.fillStyle = this.look.bg;
     ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
-    if (!this.mazeCache) this.mazeCache = this.buildMazeCache();
+    if (!this.mazeCache || this.mazeCacheScale !== scale) {
+      this.mazeCache = this.buildMazeCache(scale);
+      this.mazeCacheScale = scale;
+    }
     ctx.drawImage(this.mazeCache, 0, 0, LOGICAL_W, LOGICAL_H);
     this.drawCollectibles(ctx, now);
     this.drawTunnelArrows(ctx, now);
@@ -634,8 +773,11 @@ export class Game {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
 
-    ctx.font = '8px "Press Start 2P", monospace';
+  /** Score pop-ups and banners stay at full resolution so they are always readable. */
+  drawTexts(ctx, now) {
+    ctx.font = canvasFont(this.theme, 8);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const f of this.floaters) {
@@ -645,21 +787,19 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
-    if (this.state === 'READY') this.drawBanner(ctx, t('canvas.ready'), '#ffeb3b');
+    if (this.state === 'READY') this.drawBanner(ctx, t('canvas.ready'), this.theme.banner);
     if (this.state === 'STAGE_CLEAR') this.drawStageClear(ctx, now);
   }
 
   drawCollectibles(ctx, now) {
+    const skin = getSkin();
     const pulse = this.app.reduceMotion ? 0 : Math.sin(now * 0.008) * 1.5;
-    ctx.fillStyle = '#ffdedb';
+    ctx.fillStyle = skin.pellet;
     ctx.beginPath();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         if (this.map[r][c] !== TILE.PELLET) continue;
-        const x = c * TILE_SIZE + TILE_SIZE / 2;
-        const y = r * TILE_SIZE + TILE_SIZE / 2;
-        ctx.moveTo(x + 2.5, y);
-        ctx.arc(x, y, 2.5, 0, TAU);
+        pelletPath(ctx, c * TILE_SIZE + TILE_SIZE / 2, r * TILE_SIZE + TILE_SIZE / 2, skin.pelletSize);
       }
     }
     ctx.fill();
@@ -675,7 +815,7 @@ export class Game {
   }
 
   drawTunnelArrows(ctx, now) {
-    ctx.fillStyle = this.phase.wallColor;
+    ctx.fillStyle = this.look.wall;
     ctx.globalAlpha = this.app.reduceMotion ? 0.7 : 0.4 + 0.4 * (Math.sin(now * 0.006) > 0 ? 1 : 0.2);
     for (const r of this.tunnelRows) {
       const y = r * TILE_SIZE + TILE_SIZE / 2;
@@ -693,7 +833,7 @@ export class Game {
 
   drawBanner(ctx, text, color) {
     const y = SPAWN.fruit.row * TILE_SIZE + TILE_SIZE / 2;
-    ctx.font = '12px "Press Start 2P", monospace';
+    ctx.font = canvasFont(this.theme, 12);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
@@ -707,15 +847,19 @@ export class Game {
     const alpha = this.app.reduceMotion ? 0.25 : 0.2 + Math.abs(Math.sin(now * 0.012)) * 0.3;
     ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
-    this.drawBanner(ctx, t('canvas.stageClear'), '#ffeb3b');
+    this.drawBanner(ctx, t('canvas.stageClear'), this.theme.banner);
   }
 
   // ================================================================ HUD
 
-  applyTheme() {
+  /** Stage colors for the active theme, shared by the board and the HUD (--phase variables). */
+  applyStageLook() {
+    this.themeId = this.theme.id;
+    this.look = stageLook(this.theme, (this.level - 1) % PHASE_COUNT);
+    this.mazeCache = null;
     const root = document.documentElement;
-    root.style.setProperty('--phase', this.phase.wallColor);
-    root.style.setProperty('--phase-glow', this.phase.glowColor);
+    root.style.setProperty('--phase', this.look.wall);
+    root.style.setProperty('--phase-glow', this.look.glow);
     const chip = this.$('fruitChip');
     chip.textContent = this.phase.fruit.icon;
     this.refreshFruitLabel();
@@ -815,6 +959,7 @@ export class Game {
     this.updatePauseButton();
     this.updateFullscreenButton();
     if (this.map) {
+      if (this.themeId !== this.theme.id) this.applyStageLook();
       this.updateStage();
       this.refreshFruitLabel();
     }

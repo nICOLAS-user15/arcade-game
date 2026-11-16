@@ -4,16 +4,16 @@
  */
 
 import { LOGICAL_W, LOGICAL_H } from './config.js';
-import { drawPacman, drawGhost, drawEmoji } from './sprites.js';
+import { drawPacman, drawGhost, drawEmoji, drawPowerPellet } from './sprites.js';
 import { t } from './i18n.js';
+import { getTheme, canvasFont, rgba } from './themes.js';
 
 export const MAX_BONUS_TAPS = 25;
 const STAGE_Y = 220;
 
-const GHOST_COLORS = { Blinky: '#ff2a2a', Pinky: '#ffb8ff', Inky: '#22e6ff', Clyde: '#ffb852' };
 const CONFETTI_COLORS = ['#facc15', '#38bdf8', '#f43f5e', '#a855f7', '#4ade80', '#ffffff'];
 
-const ghost = (name, x, dir, scared = false) => ({ name, color: GHOST_COLORS[name], x, y: STAGE_Y, dir, scared });
+const ghost = (name, x, dir, scared = false) => ({ name, x, y: STAGE_Y, dir, scared });
 
 export class Cutscene {
   /**
@@ -25,6 +25,7 @@ export class Cutscene {
     this.variant = variant;
     this.stageNumber = stageNumber;
     this.hooks = hooks;
+    this.theme = hooks.theme || getTheme();
     this.time = 0;
     this.duration = 4.8;
     this.done = false;
@@ -168,17 +169,20 @@ export class Cutscene {
   }
 
   draw(ctx) {
-    ctx.fillStyle = '#060814';
+    const theme = this.theme;
+    const look = theme.cutscene;
+    const font = (px) => canvasFont(theme, px);
+    ctx.fillStyle = look.bg;
     ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
 
-    // Neon stage floor
-    ctx.strokeStyle = '#2563eb';
+    // Stage floor
+    ctx.strokeStyle = look.floor;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(0, 240);
     ctx.lineTo(LOGICAL_W, 240);
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(37, 99, 235, 0.2)';
+    ctx.strokeStyle = rgba(look.floor, 0.2);
     ctx.lineWidth = 1;
     for (let x = 0; x < LOGICAL_W; x += 30) {
       ctx.beginPath();
@@ -189,38 +193,32 @@ export class Cutscene {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#ffeb3b';
-    ctx.font = '12px "Press Start 2P", monospace';
+    ctx.fillStyle = look.title;
+    ctx.font = font(12);
     ctx.fillText(t('cutscene.title', { n: this.stageNumber }), LOGICAL_W / 2, 42);
 
     const blink = this.hooks.reduceMotion || Math.sin(performance.now() * 0.008) > 0;
-    ctx.fillStyle = blink ? '#38bdf8' : '#e0f2fe';
-    ctx.font = '8px "Press Start 2P", monospace';
+    ctx.fillStyle = blink ? look.accent : '#ffffff';
+    ctx.font = font(8);
     ctx.fillText(t('cutscene.tap'), LOGICAL_W / 2, 70);
 
-    ctx.fillStyle = '#facc15';
-    ctx.font = '9px "Press Start 2P", monospace';
+    ctx.fillStyle = look.title;
+    ctx.font = font(9);
     ctx.fillText(t('cutscene.total', { n: this.bonus }), LOGICAL_W / 2, 98);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.font = '7px "Press Start 2P", monospace';
+    ctx.font = font(7);
     ctx.textAlign = 'right';
     ctx.fillText(t('cutscene.skip'), LOGICAL_W - 10, 20);
 
     if (this.variant === 1 && !this.pellet.eaten) {
       const pulse = this.hooks.reduceMotion ? 0 : Math.sin(performance.now() * 0.015) * 2;
-      ctx.fillStyle = '#ffdedb';
-      ctx.beginPath();
-      ctx.arc(this.pellet.x, this.pellet.y, 9 + pulse, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      drawPowerPellet(ctx, this.pellet.x, this.pellet.y, 9 + pulse);
     }
     if (this.fruit && !this.fruit.eaten) drawEmoji(ctx, '🍓', this.fruit.x, this.fruit.y, 24);
 
     for (const g of this.ghosts) {
-      drawGhost(ctx, g.x, g.y, 12, { color: g.color, state: g.scared ? 'scared' : 'normal', dx: g.dir, wave: this.time * 10 });
+      drawGhost(ctx, g.x, g.y, 12, { color: theme.ghosts[g.name], state: g.scared ? 'scared' : 'normal', dx: g.dir, wave: this.time * 10 });
     }
     const p = this.pac;
     drawPacman(ctx, p.x, p.y, p.r, { angle: p.dir === -1 ? Math.PI : 0, mouth: p.mouth, glow: p.mega });
@@ -234,8 +232,8 @@ export class Cutscene {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#00ffff';
-    ctx.font = '9px "Press Start 2P", monospace';
+    ctx.fillStyle = look.accent;
+    ctx.font = font(9);
     ctx.textAlign = 'center';
     for (const tx of this.texts) {
       ctx.globalAlpha = Math.max(0, tx.life);

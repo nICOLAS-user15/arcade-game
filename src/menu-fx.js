@@ -42,14 +42,14 @@ export class Starfield {
     this.pointer.y = ny;
   }
 
-  /** calm: only a gentle twinkle, no drift, scrolling or parallax (for "reduce motion"). */
-  draw(time, calm = false) {
+  /** calm: only a gentle twinkle, no drift, scrolling or parallax (for "reduce motion"). look: theme.menu */
+  draw(time, calm = false, look = { grid: 'rgba(33, 70, 255, 0.18)', star: '190, 210, 255', square: false }) {
     const { ctx, w, h } = this;
     const animate = !calm;
     ctx.clearRect(0, 0, w, h);
 
     // Perspective grid floor
-    ctx.strokeStyle = 'rgba(33, 70, 255, 0.18)';
+    ctx.strokeStyle = look.grid;
     ctx.lineWidth = 1;
     const horizon = h * 0.62;
     const shift = animate ? (time * 0.02) % 1 : 0;
@@ -74,10 +74,15 @@ export class Starfield {
       const x = (((s.x - drift + px) % 1) + 1) % 1;
       const y = s.y * horizon + (animate ? (this.pointer.y - 0.5) * 6 * s.z : 0);
       const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(time * (calm ? 0.0009 : 0.002) + s.tw)) * s.z;
-      ctx.fillStyle = `rgba(190, 210, 255, ${a.toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(x * w, y, 0.6 + s.z * 1.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = `rgba(${look.star}, ${a.toFixed(3)})`;
+      const size = 0.6 + s.z * 1.2;
+      if (look.square) {
+        ctx.fillRect(Math.round(x * w - size), Math.round(y - size), Math.ceil(size * 2), Math.ceil(size * 2));
+      } else {
+        ctx.beginPath();
+        ctx.arc(x * w, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 }
@@ -95,8 +100,9 @@ export class AttractLane {
     this.cycle = 9; // seconds
   }
 
-  draw(time) {
+  draw(time, theme) {
     const { ctx, w, h } = this;
+    const color = (g) => theme?.ghosts[g.name] || g.color;
     ctx.clearRect(0, 0, w, h);
     const t = (time / 1000) % this.cycle;
     const y = h / 2;
@@ -124,14 +130,14 @@ export class AttractLane {
       const dir = 1;
       if (!scared) {
         GHOST_DEFS.forEach((g, i) => {
-          drawGhost(ctx, pacX - 44 - i * 30, y, 12, { color: g.color, dx: dir, wave: wave + i });
+          drawGhost(ctx, pacX - 44 - i * 30, y, 12, { color: color(g), dx: dir, wave: wave + i });
         });
       } else {
         // After the pellet the ghosts turn around and flee left
         const q = (pacX - pelletX) / (w + 60 - pelletX);
         GHOST_DEFS.forEach((g, i) => {
           const gx = pelletX - 44 - i * 30 - q * (pelletX + 100);
-          drawGhost(ctx, gx, y, 12, { color: g.color, state: 'scared', flash: q > 0.8 && Math.floor(t * 8) % 2 === 0, dx: -1, wave: wave + i });
+          drawGhost(ctx, gx, y, 12, { color: color(g), state: 'scared', flash: q > 0.8 && Math.floor(t * 8) % 2 === 0, dx: -1, wave: wave + i });
         });
       }
       drawPacman(ctx, pacX, y, r, { angle: 0, mouth, glow: scared });
@@ -141,7 +147,7 @@ export class AttractLane {
       const pacX = w + 30 - p * (w + 80);
       GHOST_DEFS.forEach((g, i) => {
         const gx = pacX - 44 - i * 30;
-        drawGhost(ctx, gx, y, 12, { color: g.color, state: 'scared', flash: p > 0.75 && Math.floor(t * 8) % 2 === 0, dx: -1, wave: wave + i });
+        drawGhost(ctx, gx, y, 12, { color: color(g), state: 'scared', flash: p > 0.75 && Math.floor(t * 8) % 2 === 0, dx: -1, wave: wave + i });
       });
       drawPacman(ctx, pacX, y, r, { angle: Math.PI, mouth, glow: true });
     }

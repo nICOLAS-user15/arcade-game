@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-dpad="off" data-hand="right">
+<html lang="en" data-dpad="off" data-theme="modern">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060811">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Pac-Man Arcade: a free browser game with 5 neon stages, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <meta name="description" content="Pac-Man Arcade: a free browser game with 5 stages, 5 visual themes, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pac-Man Arcade">
-  <meta property="og:description" content="5 neon stages, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <meta property="og:description" content="5 stages, 5 visual themes, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
   <title>Pac-Man Arcade</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
@@ -40,7 +40,7 @@
         <h1 id="menuTitle" class="logo" aria-label="Pac-Man">
           <span class="logo-pac" aria-hidden="true">PAC</span><span class="logo-man" aria-hidden="true">-MAN</span>
         </h1>
-        <p class="tagline" data-i18n="menu.tagline">5 neon stages · 4 ghosts · endless glory</p>
+        <p class="tagline" data-i18n="menu.tagline">5 stages · 5 themes · endless glory</p>
 
         <canvas id="menuLane" class="lane" width="360" height="56" aria-hidden="true"></canvas>
 
@@ -67,6 +67,18 @@
             <button type="button" role="radio" aria-checked="false" data-diff="hard" data-i18n="diff.hard">Hard</button>
           </div>
           <p id="diffHint" class="field-hint"></p>
+        </div>
+
+        <div class="field">
+          <span id="lblTheme" class="field-label" data-i18n="menu.theme">THEME</span>
+          <div id="themePicker" class="segmented themes" role="radiogroup" aria-labelledby="lblTheme">
+            <button type="button" role="radio" aria-checked="false" data-theme-id="classic"><span class="swatch" data-sw="classic" aria-hidden="true"></span><span data-i18n="theme.classic">Classic</span></button>
+            <button type="button" role="radio" aria-checked="false" data-theme-id="retro"><span class="swatch" data-sw="retro" aria-hidden="true"></span><span data-i18n="theme.retro">Retro</span></button>
+            <button type="button" role="radio" aria-checked="true" data-theme-id="modern"><span class="swatch" data-sw="modern" aria-hidden="true"></span><span data-i18n="theme.modern">Modern</span></button>
+            <button type="button" role="radio" aria-checked="false" data-theme-id="pastel"><span class="swatch" data-sw="pastel" aria-hidden="true"></span><span data-i18n="theme.pastel">Pastel</span></button>
+            <button type="button" role="radio" aria-checked="false" data-theme-id="minimal"><span class="swatch" data-sw="minimal" aria-hidden="true"></span><span data-i18n="theme.minimal">Minimal</span></button>
+          </div>
+          <p id="themeHint" class="field-hint"></p>
         </div>
 
         <div class="menu-links">
@@ -313,12 +325,6 @@
             <button type="button" role="radio" aria-checked="false" data-dpad="off" data-i18n="settings.off">Off</button>
           </div>
         </div>
-
-        <label class="setting">
-          <span class="setting-text"><b data-i18n="settings.lefty">Left-handed layout</b><small data-i18n="settings.lefty.hint">Swaps the D-pad side in landscape</small></span>
-          <input type="checkbox" role="switch" data-setting="leftHanded">
-          <span class="switch" aria-hidden="true"></span>
-        </label>
 
         <div class="setting danger-zone">
           <span class="setting-text"><b data-i18n="settings.reset">Reset progress</b><small data-i18n="settings.reset.hint">Erases scores and tutorial progress</small></span>

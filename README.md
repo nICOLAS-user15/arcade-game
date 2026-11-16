@@ -1,6 +1,6 @@
 # Pac-Man Arcade
 
-A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript. Five neon stages, three difficulty levels, an endless mode, an interactive tutorial, and a full English / Portuguese interface. It runs on desktop and mobile, and installs as an offline-capable PWA.
+A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript. Five stages, five visual themes, three difficulty levels, an endless mode, an interactive tutorial, and a full English / Portuguese interface. It runs on desktop and mobile, and installs as an offline-capable PWA.
 
 <strong><a href="https://nicolas-user15.github.io/arcade-game/" target="_blank" rel="noopener noreferrer">Play online</a></strong>
 
@@ -26,9 +26,10 @@ npm run build        # copies the shippable files to dist/ (used by the Pages de
 
 - **Modes:** Campaign (5 stages, then a victory screen) and Endless (stages loop, ghosts get faster each lap, with capped speed so it stays playable).
 - **Difficulty:** Easy / Normal / Hard change lives, ghost speed, power-up length and ghost-house release times. Personal bests are stored per mode and difficulty.
+- **Themes:** Classic (arcade blue outlines), Retro (8-bit blocks rendered at half resolution with CRT scanlines), Modern (neon tubes), Pastel (soft candy colors) and Minimal (neutral hairlines, sans-serif UI). Each theme has its own palette for all 5 stages and restyles the sprites, menu, cutscenes and interface.
 - **Onboarding:** a 5-step "How to play" tutorial opens on the first game, plus one-time contextual tips during play.
 - **Languages:** English (default) and Portuguese, switchable from the menu or Settings. Adding a language means adding one dictionary in `src/i18n.js`; a test enforces matching keys and placeholders.
-- **Controls:** keyboard (arrows / WASD), swipe, on-screen D-pad (auto on touch screens, optional left-handed layout), gamepad, haptic feedback on supported phones.
+- **Controls:** keyboard (arrows / WASD), swipe, centered on-screen D-pad (shown automatically on touch screens), gamepad, haptic feedback on supported phones.
 - **Accessibility:** zoom allowed, focus management in dialogs and modals, keyboard-navigable menu, screen-reader announcements, reduced-motion option (defaults to the OS setting), labelled controls, touch targets of 44px or more.
 
 ## Controls
@@ -52,6 +53,7 @@ src/
   config.js           Stages, tiles, difficulties and the pure level-parameter rules
   entities.js         Pac-Man and ghost movement/AI (fixed-step, DOM-free)
   game.js             State machine, scoring, rendering, HUD
+  themes.js           Visual themes: wall style and per-stage palettes, sprite colors
   cutscene.js         Intermission animations
   ui.js, menu-fx.js   Menu, tutorial, settings, scores, animated background
   input.js            Keyboard, swipe, D-pad, gamepad

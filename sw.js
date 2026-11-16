@@ -21,6 +21,7 @@ const APP_SHELL = [
   'src/menu-fx.js',
   'src/sprites.js',
   'src/storage.js',
+  'src/themes.js',
   'src/ui.js',
   'assets/fonts/fonts.css',
   'assets/fonts/press-start-2p-400-latin.woff2',

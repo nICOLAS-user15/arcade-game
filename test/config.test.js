@@ -7,10 +7,9 @@ import {
 
 const VALID_TILES = new Set(Object.values(TILE));
 
-test('there are five stages with unique ids and colors', () => {
+test('there are five stages with unique ids', () => {
   assert.equal(PHASE_COUNT, 5);
   assert.equal(new Set(PHASES.map((p) => p.id)).size, 5);
-  assert.equal(new Set(PHASES.map((p) => p.wallColor)).size, 5);
 });
 
 for (const [i, phase] of PHASES.entries()) {

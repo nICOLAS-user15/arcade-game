@@ -6,6 +6,7 @@
 
 import { DIFFICULTIES, GAME_MODES } from './config.js';
 import { isSupported, DEFAULT_LANG } from './i18n.js';
+import { THEMES, DEFAULT_THEME } from './themes.js';
 
 const PREFIX = 'pacman_';
 const LEGACY_HIGH_SCORE_KEY = 'pacman_high_score';
@@ -19,7 +20,7 @@ export function defaultSettings(prefersReducedMotion = false) {
     haptics: true,
     reduceMotion: prefersReducedMotion,
     dpad: 'auto',
-    leftHanded: false,
+    theme: DEFAULT_THEME,
     mode: 'campaign',
     difficulty: 'normal'
   };
@@ -96,6 +97,7 @@ export class Storage {
     if (!DPAD_MODES.includes(s.dpad)) s.dpad = 'auto';
     if (!GAME_MODES[s.mode]) s.mode = 'campaign';
     if (!DIFFICULTIES[s.difficulty]) s.difficulty = 'normal';
+    if (!Object.hasOwn(THEMES, s.theme)) s.theme = DEFAULT_THEME;
     return s;
   }
 

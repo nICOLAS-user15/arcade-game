@@ -189,7 +189,7 @@ export class Ghost {
   }
 
   get color() {
-    return this.def.color;
+    return this.game.theme?.ghosts[this.name] || this.def.color;
   }
 
   reset() {

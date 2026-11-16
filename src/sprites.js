@@ -2,19 +2,30 @@
  * Canvas drawing helpers shared by the game board, the cutscenes, the menu
  * and the tutorial. Everything is scaled from the radius so the same code
  * renders a 9px in-game sprite and a 40px tutorial card.
+ * Colors come from the active theme's skin (see setSkin and themes.js).
  */
 
+import { THEMES, DEFAULT_THEME } from './themes.js';
+
 const TAU = Math.PI * 2;
-export const PACMAN_COLOR = '#ffe600';
-export const SCARED_COLOR = '#1d4ed8';
 const REF_RADIUS = 8.8; // TILE_SIZE * 0.44, the radius the proportions were designed for
+
+let skin = THEMES[DEFAULT_THEME].skin;
+
+export function setSkin(next) {
+  skin = next;
+}
+
+export function getSkin() {
+  return skin;
+}
 
 export function drawPacman(ctx, x, y, r, { angle = 0, mouth = 0.2, glow = false } = {}) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.fillStyle = PACMAN_COLOR;
-  if (glow) {
+  ctx.fillStyle = skin.pacman;
+  if (glow && skin.glow) {
     ctx.shadowColor = 'rgba(250, 204, 21, 0.9)';
     ctx.shadowBlur = 14;
   }
@@ -35,7 +46,7 @@ export function drawPacmanDying(ctx, x, y, r, progress) {
   const a = Math.min(Math.PI, progress * Math.PI);
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = PACMAN_COLOR;
+  ctx.fillStyle = skin.pacman;
   ctx.beginPath();
   ctx.arc(0, 0, r, a - Math.PI / 2, TAU - a - Math.PI / 2);
   ctx.lineTo(0, 0);
@@ -52,7 +63,7 @@ export function drawGhostEyes(ctx, r, dx = 0, dy = 0) {
   ctx.ellipse(-r * 0.35 + ox * 0.5, -r * 0.2 + oy * 0.5, 3.5 * s, 4.5 * s, 0, 0, TAU);
   ctx.ellipse(r * 0.35 + ox * 0.5, -r * 0.2 + oy * 0.5, 3.5 * s, 4.5 * s, 0, 0, TAU);
   ctx.fill();
-  ctx.fillStyle = '#0022cc';
+  ctx.fillStyle = skin.pupil;
   ctx.beginPath();
   ctx.arc(-r * 0.35 + ox, -r * 0.2 + oy, 2 * s, 0, TAU);
   ctx.arc(r * 0.35 + ox, -r * 0.2 + oy, 2 * s, 0, TAU);
@@ -75,7 +86,7 @@ export function drawGhost(ctx, x, y, r, { color, state = 'normal', flash = false
   }
 
   const scared = state === 'scared';
-  const body = scared ? (flash ? '#ffffff' : SCARED_COLOR) : color;
+  const body = scared ? (flash ? skin.flash : skin.scared) : color;
   const w = Math.sin(wave) * 2 * s;
 
   ctx.fillStyle = body;
@@ -92,7 +103,7 @@ export function drawGhost(ctx, x, y, r, { color, state = 'normal', flash = false
   ctx.fill();
 
   if (scared) {
-    const face = flash ? '#d90429' : '#ffb8b8';
+    const face = flash ? skin.flashFace : skin.scaredFace;
     ctx.fillStyle = face;
     ctx.beginPath();
     ctx.arc(-r * 0.35, -r * 0.2, 2 * s, 0, TAU);
@@ -113,20 +124,32 @@ export function drawGhost(ctx, x, y, r, { color, state = 'normal', flash = false
   ctx.restore();
 }
 
-export function drawPowerPellet(ctx, x, y, r) {
-  ctx.fillStyle = '#ffdedb';
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
-  ctx.fill();
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+/** Adds one pellet to the current path (lets the board batch hundreds of pellets in a single fill). */
+export function pelletPath(ctx, x, y, r, shape = skin.pelletShape) {
+  if (shape === 'square') {
+    ctx.rect(x - r, y - r, r * 2, r * 2);
+  } else {
+    ctx.moveTo(x + r, y);
+    ctx.arc(x, y, r, 0, TAU);
+  }
 }
 
-export function drawPellet(ctx, x, y, r = 2.5) {
-  ctx.fillStyle = '#ffdedb';
+export function drawPowerPellet(ctx, x, y, r) {
+  ctx.fillStyle = skin.power;
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
+  pelletPath(ctx, x, y, r, skin.powerShape || 'round');
+  ctx.fill();
+  if (skin.powerRing) {
+    ctx.strokeStyle = skin.powerRing;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+}
+
+export function drawPellet(ctx, x, y, r = skin.pelletSize) {
+  ctx.fillStyle = skin.pellet;
+  ctx.beginPath();
+  pelletPath(ctx, x, y, r);
   ctx.fill();
 }
 
@@ -134,12 +157,12 @@ export function drawPortal(ctx, cx, cy, now) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(now * 0.005);
-  ctx.strokeStyle = '#00f0ff';
+  ctx.strokeStyle = skin.portalRing || '#00f0ff';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(0, 0, 7.5, 0, TAU);
   ctx.stroke();
-  ctx.fillStyle = '#ff00aa';
+  ctx.fillStyle = skin.portalCore || '#ff00aa';
   ctx.beginPath();
   ctx.arc(0, 0, 4, 0, TAU);
   ctx.fill();

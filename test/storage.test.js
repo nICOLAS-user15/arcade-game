@@ -18,21 +18,23 @@ test('defaults: English, everything on, reduced motion follows the OS', () => {
 test('settings round-trip', () => {
   const st = fresh();
   const s = st.loadSettings();
-  Object.assign(s, { lang: 'pt', difficulty: 'hard', mode: 'endless', leftHanded: true, dpad: 'off' });
+  Object.assign(s, { lang: 'pt', difficulty: 'hard', mode: 'endless', theme: 'retro', dpad: 'off' });
   st.saveSettings(s);
   assert.deepEqual(st.loadSettings(), s);
 });
 
 test('hand-edited or corrupt settings are sanitized', () => {
   const backend = new MemoryBackend();
-  backend.setItem('pacman_settings', JSON.stringify({ lang: 'xx', difficulty: 'nightmare', mode: 'zen', dpad: 'sideways', sfx: 'yes', leftHanded: true }));
+  backend.setItem('pacman_settings', JSON.stringify({ lang: 'xx', difficulty: 'nightmare', mode: 'zen', dpad: 'sideways', sfx: 'yes', theme: 'toString', haptics: false, leftHanded: true }));
   const s = new Storage(backend).loadSettings();
   assert.equal(s.lang, 'en');
   assert.equal(s.difficulty, 'normal');
   assert.equal(s.mode, 'campaign');
   assert.equal(s.dpad, 'auto');
+  assert.equal(s.theme, 'modern', 'unknown theme falls back to the default');
   assert.equal(s.sfx, true, 'wrong type falls back to the default');
-  assert.equal(s.leftHanded, true, 'valid values survive');
+  assert.equal(s.haptics, false, 'valid values survive');
+  assert.equal('leftHanded' in s, false, 'removed settings are dropped');
 
   backend.setItem('pacman_settings', '{not json');
   assert.deepEqual(new Storage(backend).loadSettings(), defaultSettings());

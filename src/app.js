@@ -6,12 +6,17 @@
 import { Storage } from './storage.js';
 import { SoundController, Haptics } from './audio.js';
 import { setLang, onLangChange } from './i18n.js';
+import { getTheme } from './themes.js';
+import { setSkin } from './sprites.js';
 
 export class App {
   constructor() {
     this.$ = (id) => document.getElementById(id);
     this.reducedMotionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.coarseQuery = matchMedia('(pointer: coarse)');
+    this.anyCoarseQuery = matchMedia('(any-pointer: coarse)');
+    this.smallQuery = matchMedia('(max-width: 900px), (max-height: 500px)');
+    this.touchSeen = false;
 
     this.storage = new Storage(undefined, { prefersReducedMotion: this.reducedMotionQuery.matches });
     this.settings = this.storage.loadSettings();
@@ -22,6 +27,13 @@ export class App {
 
     // "auto" D-pad follows the primary pointer type, which can change (e.g. a 2-in-1 laptop)
     this.coarseQuery.addEventListener?.('change', () => this.applySettings());
+    this.smallQuery.addEventListener?.('change', () => this.applySettings());
+    // Some phone browsers (e.g. "desktop site" mode) misreport the primary pointer, so a real touch also counts
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' || this.touchSeen) return;
+      this.touchSeen = true;
+      this.applySettings();
+    }, { capture: true, passive: true });
 
     setLang(this.settings.lang);
     this.applySettings();
@@ -52,7 +64,9 @@ export class App {
 
   get dpadVisible() {
     const mode = this.settings.dpad;
-    return mode === 'on' || (mode === 'auto' && this.coarseQuery.matches);
+    if (mode !== 'auto') return mode === 'on';
+    const touchScreen = (navigator.maxTouchPoints || 0) > 0 || this.anyCoarseQuery.matches;
+    return this.coarseQuery.matches || this.touchSeen || (touchScreen && this.smallQuery.matches);
   }
 
   applySettings() {
@@ -61,8 +75,15 @@ export class App {
     this.haptics.setEnabled(s.haptics);
     const root = document.documentElement;
     root.dataset.dpad = this.dpadVisible ? 'on' : 'off';
-    root.dataset.hand = s.leftHanded ? 'left' : 'right';
     root.dataset.motion = s.reduceMotion ? 'reduced' : 'full';
+    const theme = this.theme;
+    root.dataset.theme = theme.id;
+    setSkin(theme.skin);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.chrome);
+  }
+
+  get theme() {
+    return getTheme(this.settings.theme);
   }
 
   get reduceMotion() {

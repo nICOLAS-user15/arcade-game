@@ -1,6 +1,7 @@
 /**
  * Static game data and pure rules: constants, tile types, difficulties,
  * the five stages and the level-parameter formula used by Campaign and Endless.
+ * Stage colors live in themes.js so each visual theme can restyle them.
  * No DOM access here so everything can be unit-tested in Node.
  */
 
@@ -73,10 +74,6 @@ export const GHOST_DEFS = Object.freeze([
 export const PHASES = [
   {
     id: 'classic',
-    wallColor: '#2121ff',
-    glowColor: 'rgba(33, 70, 255, 0.5)',
-    bgColor: '#000000',
-    innerWall: '#090d24',
     ghostSpeed: 1.35,
     pacmanSpeed: 2,
     frightenedDuration: 9,
@@ -111,10 +108,6 @@ export const PHASES = [
   },
   {
     id: 'emerald',
-    wallColor: '#00ff88',
-    glowColor: 'rgba(0, 255, 136, 0.5)',
-    bgColor: '#02120a',
-    innerWall: '#062917',
     ghostSpeed: 1.65,
     pacmanSpeed: 2.1,
     frightenedDuration: 7.5,
@@ -149,10 +142,6 @@ export const PHASES = [
   },
   {
     id: 'crimson',
-    wallColor: '#ff007f',
-    glowColor: 'rgba(255, 0, 127, 0.55)',
-    bgColor: '#14010a',
-    innerWall: '#290416',
     ghostSpeed: 1.95,
     pacmanSpeed: 2.2,
     frightenedDuration: 6,
@@ -187,10 +176,6 @@ export const PHASES = [
   },
   {
     id: 'golden',
-    wallColor: '#ffb703',
-    glowColor: 'rgba(255, 183, 3, 0.55)',
-    bgColor: '#140c01',
-    innerWall: '#2b1b04',
     ghostSpeed: 2.2,
     pacmanSpeed: 2.3,
     frightenedDuration: 5,
@@ -225,10 +210,6 @@ export const PHASES = [
   },
   {
     id: 'quantum',
-    wallColor: '#a855f7',
-    glowColor: 'rgba(168, 85, 247, 0.65)',
-    bgColor: '#0c0217',
-    innerWall: '#200738',
     ghostSpeed: 2.5,
     pacmanSpeed: 2.4,
     frightenedDuration: 4,
