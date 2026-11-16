@@ -2,7 +2,7 @@
 
 A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript. Five neon stages, three difficulty levels, an endless mode, an interactive tutorial, and a full English / Portuguese interface. It runs on desktop and mobile, and installs as an offline-capable PWA.
 
-<strong><a href="https://nicolas-user15.github.io/pacman-game/" target="_blank" rel="noopener noreferrer">Play online</a></strong>
+<strong><a href="https://nicolas-user15.github.io/arcade-game/" target="_blank" rel="noopener noreferrer">Play online</a></strong>
 
 No dependencies and no build step to play: just ES modules.
 
