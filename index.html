@@ -1,135 +1,347 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en" data-dpad="off" data-hand="right">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060811">
-  <title>Pac-Man Arcade - 5 Fases</title>
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Pac-Man Arcade: a free browser game with 5 neon stages, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Pac-Man Arcade">
+  <meta property="og:description" content="5 neon stages, 3 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <title>Pac-Man Arcade</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/press-start-2p-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/fonts/fonts.css">
   <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="arcade-cabinet" id="arcadeCabinet">
-    <!-- Topbar / Menu Arcade Premium -->
-    <header class="arcade-header">
-      <div class="header-section left">
-        <div class="stat-pill score">
-          <span class="pill-label">SCORE</span>
-          <span id="score" class="pill-val">0</span>
-        </div>
-        <div class="stat-pill high">
-          <span class="pill-label">RECORD</span>
-          <span id="high-score" class="pill-val">0</span>
-        </div>
+  <a class="skip-link" href="#btnPlay" data-i18n="a11y.skip">Skip to menu</a>
+
+  <div id="app" class="app">
+
+    <!-- ============================ MAIN MENU ============================ -->
+    <main id="menu" class="menu" aria-labelledby="menuTitle">
+      <canvas id="menuBg" class="menu-bg" aria-hidden="true"></canvas>
+
+      <div class="menu-lang" role="group" aria-labelledby="langLabel">
+        <span id="langLabel" class="sr-only" data-i18n="settings.language">Language</span>
+        <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" lang="en">EN</button>
+        <button type="button" class="lang-btn" data-lang="pt" aria-pressed="false" lang="pt">PT</button>
       </div>
 
-      <div class="header-section center">
-        <h1 class="arcade-logo">PAC-MAN</h1>
-        <div id="levelBadge" class="level-pill">FASE 1/5: O CLÁSSICO</div>
-      </div>
+      <div class="menu-card">
+       <div class="menu-hero">
+        <h1 id="menuTitle" class="logo" aria-label="Pac-Man">
+          <span class="logo-pac" aria-hidden="true">PAC</span><span class="logo-man" aria-hidden="true">-MAN</span>
+        </h1>
+        <p class="tagline" data-i18n="menu.tagline">5 neon stages · 4 ghosts · endless glory</p>
 
-      <div class="header-section right">
-        <div class="lives-group">
-          <span class="pill-label">VIDAS</span>
-          <div id="livesIcons" class="lives-display"></div>
+        <canvas id="menuLane" class="lane" width="360" height="56" aria-hidden="true"></canvas>
+
+        <button id="btnPlay" type="button" class="btn-primary">
+          <span data-i18n="menu.play">PLAY</span>
+        </button>
+       </div>
+
+       <div class="menu-options">
+        <div class="field">
+          <span id="lblMode" class="field-label" data-i18n="menu.mode">MODE</span>
+          <div id="modePicker" class="segmented" role="radiogroup" aria-labelledby="lblMode">
+            <button type="button" role="radio" aria-checked="true" data-mode="campaign" data-i18n="mode.campaign">Campaign</button>
+            <button type="button" role="radio" aria-checked="false" data-mode="endless" data-i18n="mode.endless">Endless</button>
+          </div>
+          <p id="modeHint" class="field-hint" data-i18n="mode.campaign.hint"></p>
         </div>
-        <div id="fruitDisplay" class="fruit-badge" title="Bônus da Fase">🍒</div>
-        
-        <div class="menu-actions">
-          <button id="btnFullscreen" class="btn-action primary" title="Tela Cheia (Atalho: Tecla F)">
-            <span class="btn-icon">⛶</span> TELA CHEIA
+
+        <div class="field">
+          <span id="lblDiff" class="field-label" data-i18n="menu.difficulty">DIFFICULTY</span>
+          <div id="diffPicker" class="segmented three" role="radiogroup" aria-labelledby="lblDiff">
+            <button type="button" role="radio" aria-checked="false" data-diff="easy" data-i18n="diff.easy">Easy</button>
+            <button type="button" role="radio" aria-checked="true" data-diff="normal" data-i18n="diff.normal">Normal</button>
+            <button type="button" role="radio" aria-checked="false" data-diff="hard" data-i18n="diff.hard">Hard</button>
+          </div>
+          <p id="diffHint" class="field-hint"></p>
+        </div>
+
+        <div class="menu-links">
+          <button type="button" id="btnHowTo" class="btn-ghost">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>
+            <span data-i18n="menu.howto">How to play</span>
           </button>
-          <button id="btnPause" class="btn-action" title="Pausar jogo (Atalho: Espaço)">⏸️</button>
-          <button id="btnRestart" class="btn-action" title="Reiniciar jogo">🔄</button>
-          <button id="btnSound" class="btn-action" title="Ligar/Desligar som">🔊</button>
+          <button type="button" id="btnScores" class="btn-ghost">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/></svg>
+            <span data-i18n="menu.scores">High scores</span>
+          </button>
+          <button type="button" id="btnSettings" class="btn-ghost">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+            <span data-i18n="menu.settings">Settings</span>
+          </button>
+        </div>
+
+        <p id="bestLine" class="best-line"></p>
+       </div>
+      </div>
+
+      <p class="menu-foot" data-i18n="menu.keys">Arrow keys / Tab to navigate · Enter to select</p>
+    </main>
+
+    <!-- ============================== GAME ============================== -->
+    <div id="game" class="game" hidden>
+
+      <header class="hud">
+        <div class="stat stat-score">
+          <span class="stat-label" data-i18n="hud.score">SCORE</span>
+          <span id="score" class="stat-val">0</span>
+        </div>
+        <div class="stage-badge" id="stageBadge">
+          <span id="stageNum" class="stage-num"></span>
+          <span id="stageName" class="stage-name"></span>
+        </div>
+        <div class="stat stat-best">
+          <span class="stat-label" data-i18n="hud.best">BEST</span>
+          <span id="highScore" class="stat-val">0</span>
+        </div>
+      </header>
+
+      <section class="board-wrap">
+        <div class="board" id="canvasContainer">
+          <canvas id="gameCanvas" width="380" height="420" role="img" aria-label="Game board"></canvas>
+          <div class="power-bar" id="powerBar" hidden><i id="powerFill"></i></div>
+          <div class="coach" id="coach" role="status" aria-live="polite" hidden><span id="coachText"></span></div>
+
+          <!-- Overlay used for pause, stage briefing, game over and victory -->
+          <div id="gameOverlay" class="overlay" hidden>
+            <div id="pauseModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden>
+              <h2 id="pauseTitle" data-i18n="pause.title">PAUSED</h2>
+              <div class="modal-actions">
+                <button type="button" id="btnContinue" class="btn-primary small" data-i18n="pause.resume">Resume</button>
+                <button type="button" id="btnRestartPause" class="btn-ghost block" data-i18n="pause.restart">Restart</button>
+                <button type="button" id="btnSettingsPause" class="btn-ghost block" data-i18n="menu.settings">Settings</button>
+                <button type="button" id="btnQuit" class="btn-ghost block danger" data-i18n="pause.quit">Quit to menu</button>
+              </div>
+            </div>
+
+            <div id="briefingModal" class="modal briefing" role="dialog" aria-modal="true" aria-labelledby="briefingTitle" hidden>
+              <p id="briefingLevel" class="briefing-badge"></p>
+              <h2 id="briefingTitle"></h2>
+              <ul class="features">
+                <li><span id="briefingFeatureIcon" class="feat-icon" aria-hidden="true"></span><span class="feat-info"><small data-i18n="briefing.new">NEW</small><b id="briefingFeatureText"></b></span></li>
+                <li><span id="briefingFruitIcon" class="feat-icon" aria-hidden="true"></span><span class="feat-info"><small data-i18n="briefing.fruit">BONUS FRUIT</small><b id="briefingFruitText"></b></span></li>
+                <li><span class="feat-icon" aria-hidden="true">⚡</span><span class="feat-info"><small data-i18n="briefing.speed">GHOST SPEED</small><b id="briefingSpeedText"></b></span></li>
+              </ul>
+              <p class="bonus-line"><span data-i18n="briefing.bonus">Cutscene bonus</span> <b id="briefingBonusPts">+0</b></p>
+              <button type="button" id="btnStartPhase" class="btn-primary small"></button>
+            </div>
+
+            <div id="standardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" hidden>
+              <div id="overlayIcon" class="modal-icon" aria-hidden="true"></div>
+              <h2 id="overlayTitle"></h2>
+              <p id="overlaySubtitle" class="modal-text"></p>
+              <p id="newBest" class="new-best" hidden data-i18n="result.newBest">★ NEW PERSONAL BEST ★</p>
+              <div class="modal-actions">
+                <button type="button" id="btnPrimary" class="btn-primary small"></button>
+                <button type="button" id="btnSecondary" class="btn-ghost block"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="toolbar">
+        <div class="lives" role="group" aria-labelledby="livesLabel">
+          <span id="livesLabel" class="stat-label" data-i18n="hud.lives">LIVES</span>
+          <div id="livesIcons" class="lives-icons"></div>
+        </div>
+        <div id="fruitChip" class="fruit-chip" role="img"></div>
+        <div class="tool-buttons">
+          <button type="button" id="btnPause" class="icon-btn" data-i18n-aria="btn.pause" data-i18n-title="btn.pause">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-pause" d="M8 5v14M16 5v14"/><path class="i-play" d="M7 5l12 7-12 7z"/></svg>
+          </button>
+          <button type="button" id="btnSound" class="icon-btn" data-i18n-aria="btn.sound" data-i18n-title="btn.sound" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="mute" d="M16 9l5 6M21 9l-5 6"/></svg>
+          </button>
+          <button type="button" id="btnFullscreen" class="icon-btn" data-i18n-aria="btn.fullscreen" data-i18n-title="btn.fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
         </div>
       </div>
-    </header>
 
-    <!-- Canvas do Jogo -->
-    <div class="canvas-container" id="canvasContainer">
-      <canvas id="gameCanvas" width="380" height="420"></canvas>
-      
-      <!-- Overlay Geral (Início, Game Over, Pausa) -->
-      <div id="gameOverlay" class="overlay">
-        <!-- Modal Padrão (Início / Game Over / Vitória) -->
-        <div id="standardModal" class="overlay-modal">
-          <div class="overlay-icon">🟡</div>
-          <h2 id="overlayTitle">PRONTO!</h2>
-          <p id="overlaySubtitle">Use as <b>Setas</b>, <b>W A S D</b> ou <b>deslize o dedo</b> para jogar</p>
-          <button id="btnAction" class="btn-play">INICIAR JOGO</button>
-        </div>
+      <div id="dpad" class="dpad" role="group" data-i18n-aria="dpad.label">
+        <button type="button" class="dpad-btn up" data-dir="UP" data-i18n-aria="dir.up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6l7 10H5z"/></svg></button>
+        <button type="button" class="dpad-btn left" data-dir="LEFT" data-i18n-aria="dir.left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12l10-7v14z"/></svg></button>
+        <button type="button" class="dpad-btn right" data-dir="RIGHT" data-i18n-aria="dir.right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 12L8 5v14z"/></svg></button>
+        <button type="button" class="dpad-btn down" data-dir="DOWN" data-i18n-aria="dir.down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18L5 8h14z"/></svg></button>
+      </div>
 
-        <!-- Modal de Pausa -->
-        <div id="pauseModal" class="overlay-modal hidden">
-          <div class="overlay-icon">⏸️</div>
-          <h2 id="pauseTitle">PAUSADO</h2>
-          <p class="pause-hint">Jogo pausado</p>
-          <div class="pause-menu">
-            <button id="btnContinue" class="btn-pause-action primary">▶ CONTINUAR</button>
-            <button id="btnRestartPause" class="btn-pause-action">🔄 RECOMEÇAR</button>
-            <button id="btnExitToMenu" class="btn-pause-action danger">🏠 SAIR</button>
+      <footer class="key-hints">
+        <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd>WASD</kbd> <span data-i18n="keys.move">Move</span></span>
+        <span><kbd>Space</kbd> <span data-i18n="keys.pause">Pause</span></span>
+        <span><kbd>F</kbd> <span data-i18n="keys.fullscreen">Fullscreen</span></span>
+        <span><kbd>M</kbd> <span data-i18n="keys.mute">Mute</span></span>
+      </footer>
+    </div>
+
+    <!-- ============================ DIALOGS ============================ -->
+
+    <dialog id="howtoDialog" class="dialog" aria-labelledby="howtoTitle">
+      <div class="dialog-head">
+        <h2 id="howtoTitle" data-i18n="howto.title">HOW TO PLAY</h2>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="btn.close" data-i18n-title="btn.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="steps" id="howtoSteps">
+        <section class="step" data-step="1">
+          <h3 data-i18n="howto.s1.title">1 · Move</h3>
+          <p data-i18n="howto.s1.text">Steer Pac-Man through the maze. He keeps going until you pick a new direction, and the turn happens at the next opening.</p>
+          <div class="control-cards">
+            <div class="control-card">
+              <div class="keycaps" aria-hidden="true"><kbd>↑</kbd><br><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+              <b data-i18n="howto.ctrl.keyboard">Keyboard</b>
+              <small data-i18n="howto.ctrl.keyboard.text">Arrow keys or WASD</small>
+            </div>
+            <div class="control-card">
+              <svg class="swipe-demo" viewBox="0 0 64 64" aria-hidden="true"><path d="M12 40h38M42 32l8 8-8 8"/><circle class="finger" cx="14" cy="40" r="6"/></svg>
+              <b data-i18n="howto.ctrl.touch">Touch</b>
+              <small data-i18n="howto.ctrl.touch.text">Swipe on the board or use the D-pad</small>
+            </div>
+            <div class="control-card">
+              <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="22" width="48" height="26" rx="13"/><path d="M20 30v10M15 35h10M44 32h.01M49 38h.01"/></svg>
+              <b data-i18n="howto.ctrl.gamepad">Gamepad</b>
+              <small data-i18n="howto.ctrl.gamepad.text">D-pad or left stick, Start to pause</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="step" data-step="2" hidden>
+          <h3 data-i18n="howto.s2.title">2 · Clear the maze</h3>
+          <p data-i18n="howto.s2.text">Eat every pellet to finish the stage. Avoid the ghosts: one touch costs a life.</p>
+          <div class="sprite-row">
+            <div class="sprite-card"><canvas class="sprite" data-sprite="pellet" width="56" height="56" aria-hidden="true"></canvas><b data-i18n="howto.pellet">Pellet</b><small>+10</small></div>
+            <div class="sprite-card"><canvas class="sprite" data-sprite="power" width="56" height="56" aria-hidden="true"></canvas><b data-i18n="howto.power">Power pellet</b><small>+50</small></div>
+            <div class="sprite-card"><canvas class="sprite" data-sprite="fruit" width="56" height="56" aria-hidden="true"></canvas><b data-i18n="howto.fruit">Bonus fruit</b><small data-i18n="howto.fruit.points">100 to 1000</small></div>
+          </div>
+        </section>
+
+        <section class="step" data-step="3" hidden>
+          <h3 data-i18n="howto.s3.title">3 · Turn the tables</h3>
+          <p data-i18n="howto.s3.text">A power pellet turns the ghosts blue for a few seconds. Chase them: each one eaten in a row is worth double.</p>
+          <div class="sprite-row">
+            <div class="sprite-card"><canvas class="sprite" data-sprite="scared" width="56" height="56" aria-hidden="true"></canvas><b>200</b></div>
+            <div class="sprite-card"><canvas class="sprite" data-sprite="scared" width="56" height="56" aria-hidden="true"></canvas><b>400</b></div>
+            <div class="sprite-card"><canvas class="sprite" data-sprite="scared" width="56" height="56" aria-hidden="true"></canvas><b>800</b></div>
+            <div class="sprite-card"><canvas class="sprite" data-sprite="scared" width="56" height="56" aria-hidden="true"></canvas><b>1600</b></div>
+          </div>
+          <p class="note" data-i18n="howto.s3.note">When they start flashing white, the effect is about to end!</p>
+        </section>
+
+        <section class="step" data-step="4" hidden>
+          <h3 data-i18n="howto.s4.title">4 · Know your enemies</h3>
+          <ul class="ghost-list">
+            <li><canvas class="sprite" data-sprite="Blinky" width="48" height="48" aria-hidden="true"></canvas><span><b class="g-blinky">Blinky</b><small data-i18n="ghost.blinky">Chases you head-on.</small></span></li>
+            <li><canvas class="sprite" data-sprite="Pinky" width="48" height="48" aria-hidden="true"></canvas><span><b class="g-pinky">Pinky</b><small data-i18n="ghost.pinky">Ambusher: aims 4 tiles ahead of you.</small></span></li>
+            <li><canvas class="sprite" data-sprite="Inky" width="48" height="48" aria-hidden="true"></canvas><span><b class="g-inky">Inky</b><small data-i18n="ghost.inky">Flanker: aims 2 tiles ahead of you.</small></span></li>
+            <li><canvas class="sprite" data-sprite="Clyde" width="48" height="48" aria-hidden="true"></canvas><span><b class="g-clyde">Clyde</b><small data-i18n="ghost.clyde">Shy: chases from afar, flees to his corner when close.</small></span></li>
+          </ul>
+        </section>
+
+        <section class="step" data-step="5" hidden>
+          <h3 data-i18n="howto.s5.title">5 · Tunnels, portals and tips</h3>
+          <ul class="tips">
+            <li><span class="tip-icon" aria-hidden="true">🌀</span><span data-i18n="howto.tip.tunnel">Side tunnels wrap you to the other edge. Ghosts slow down inside them.</span></li>
+            <li><span class="tip-icon" aria-hidden="true">🌌</span><span data-i18n="howto.tip.portal">From stage 3, corner portals teleport you diagonally across the maze.</span></li>
+            <li><span class="tip-icon" aria-hidden="true">↩️</span><span data-i18n="howto.tip.reverse">You can reverse instantly in any corridor. Use it to dodge.</span></li>
+            <li><span class="tip-icon" aria-hidden="true">♾️</span><span data-i18n="howto.tip.endless">Endless mode repeats the stages, each lap a little faster.</span></li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="dialog-foot">
+        <button type="button" id="howtoPrev" class="btn-ghost" data-i18n="howto.back">Back</button>
+        <div class="dots" id="howtoDots" aria-hidden="true"></div>
+        <button type="button" id="howtoNext" class="btn-primary small" data-i18n="howto.next">Next</button>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog" class="dialog" aria-labelledby="settingsTitle">
+      <div class="dialog-head">
+        <h2 id="settingsTitle" data-i18n="menu.settings">SETTINGS</h2>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="btn.close" data-i18n-title="btn.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="settings-list">
+        <div class="setting">
+          <span class="setting-text"><b data-i18n="settings.language">Language</b></span>
+          <div id="langPicker" class="segmented" role="radiogroup" data-i18n-aria="settings.language">
+            <button type="button" role="radio" aria-checked="true" data-lang="en" lang="en">English</button>
+            <button type="button" role="radio" aria-checked="false" data-lang="pt" lang="pt">Português</button>
           </div>
         </div>
 
-        <!-- Card Interativo de Apresentação da Próxima Fase -->
-        <div id="briefingModal" class="overlay-modal briefing hidden">
-          <div class="briefing-badge" id="briefingLevel">FASE 2 DESBLOQUEADA!</div>
-          <h2 id="briefingTitle" class="briefing-title">JARDINS ESMERALDA</h2>
-          
-          <div class="features-grid">
-            <div class="feature-card">
-              <span class="feat-icon" id="briefingFeatureIcon">🌀</span>
-              <div class="feat-info">
-                <span class="feat-label">NOVIDADE</span>
-                <span class="feat-val" id="briefingFeatureText">Túneis Laterais Duplos</span>
-              </div>
-            </div>
-            <div class="feature-card">
-              <span class="feat-icon" id="briefingFruitIcon">🍓</span>
-              <div class="feat-info">
-                <span class="feat-label">FRUTA BÔNUS</span>
-                <span class="feat-val" id="briefingFruitText">Morango (+300 pts)</span>
-              </div>
-            </div>
-            <div class="feature-card wide">
-              <span class="feat-icon">⚡</span>
-              <div class="feat-info">
-                <span class="feat-label">VELOCIDADE DOS FANTASMAS</span>
-                <span class="feat-val" id="briefingSpeedText">+22% Mais Rápidos</span>
-              </div>
-            </div>
-          </div>
+        <label class="setting">
+          <span class="setting-text"><b data-i18n="settings.sfx">Sound effects</b></span>
+          <input type="checkbox" role="switch" data-setting="sfx">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
 
-          <div class="bonus-summary" id="briefingBonusSummary">
-            🎉 Bônus da Animação: <span id="briefingBonusPts" class="bonus-highlight">+0 pts</span>
-          </div>
+        <label class="setting">
+          <span class="setting-text"><b data-i18n="settings.haptics">Vibration</b><small data-i18n="settings.haptics.hint">Haptic feedback on supported phones</small></span>
+          <input type="checkbox" role="switch" data-setting="haptics">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
 
-          <button id="btnStartPhase" class="btn-play pulse">▶ ENTRAR NA FASE</button>
+        <label class="setting">
+          <span class="setting-text"><b data-i18n="settings.motion">Reduce motion</b><small data-i18n="settings.motion.hint">Fewer flashes, calmer menu, no screen effects</small></span>
+          <input type="checkbox" role="switch" data-setting="reduceMotion">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <div class="setting">
+          <span class="setting-text"><b data-i18n="settings.dpad">On-screen D-pad</b><small data-i18n="settings.dpad.hint">Auto shows it on touch screens</small></span>
+          <div id="dpadPicker" class="segmented three" role="radiogroup" data-i18n-aria="settings.dpad">
+            <button type="button" role="radio" aria-checked="true" data-dpad="auto" data-i18n="settings.auto">Auto</button>
+            <button type="button" role="radio" aria-checked="false" data-dpad="on" data-i18n="settings.on">On</button>
+            <button type="button" role="radio" aria-checked="false" data-dpad="off" data-i18n="settings.off">Off</button>
+          </div>
+        </div>
+
+        <label class="setting">
+          <span class="setting-text"><b data-i18n="settings.lefty">Left-handed layout</b><small data-i18n="settings.lefty.hint">Swaps the D-pad side in landscape</small></span>
+          <input type="checkbox" role="switch" data-setting="leftHanded">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+
+        <div class="setting danger-zone">
+          <span class="setting-text"><b data-i18n="settings.reset">Reset progress</b><small data-i18n="settings.reset.hint">Erases scores and tutorial progress</small></span>
+          <button type="button" id="btnReset" class="btn-ghost danger" data-i18n="settings.reset.btn">Reset</button>
         </div>
       </div>
-    </div>
+    </dialog>
 
-    <!-- Direcional na tela (aparece apenas em dispositivos de toque) -->
-    <div id="dpad" class="dpad" aria-label="Direcional">
-      <button class="dpad-btn up" data-dir="UP" aria-label="Cima">▲</button>
-      <button class="dpad-btn left" data-dir="LEFT" aria-label="Esquerda">◀</button>
-      <button class="dpad-btn right" data-dir="RIGHT" aria-label="Direita">▶</button>
-      <button class="dpad-btn down" data-dir="DOWN" aria-label="Baixo">▼</button>
-    </div>
+    <dialog id="scoresDialog" class="dialog" aria-labelledby="scoresTitle">
+      <div class="dialog-head">
+        <h2 id="scoresTitle" data-i18n="menu.scores">HIGH SCORES</h2>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="btn.close" data-i18n-title="btn.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="scoresBody" class="scores-body"></div>
+    </dialog>
 
-    <!-- Barra de Atalhos Inferior Discreta -->
-    <footer class="arcade-footer-bar">
-      <span class="key-hint">🕹️ <b>SETAS / WASD</b>: Mover</span>
-      <span class="divider">•</span>
-      <span class="key-hint">⏸️ <b>ESPAÇO</b>: Pausa</span>
-      <span class="divider">•</span>
-      <span class="key-hint">⛶ <b>F</b>: Tela Cheia</span>
-    </footer>
+    <div id="toasts" class="toasts" aria-hidden="true"></div>
+    <div id="srStatus" class="sr-only" role="status" aria-live="polite"></div>
   </div>
 
-  <script src="game.js"></script>
+  <noscript><p class="noscript">This game needs JavaScript to run.</p></noscript>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

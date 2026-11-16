@@ -9,3 +9,6 @@ desktop.ini
 .idea/
 *.log
 node_modules/
+
+# Build output
+dist/

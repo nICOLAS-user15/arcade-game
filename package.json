@@ -1,10 +1,15 @@
 {
-  "name": "pacman-game",
-  "version": "1.0.0",
-  "description": "A Pac-Man recreation built with HTML5 Canvas and vanilla JavaScript.",
+  "name": "pacman-arcade",
+  "version": "2.0.0",
+  "description": "A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript: 5 stages, 3 difficulties, endless mode, English and Portuguese.",
+  "type": "module",
   "main": "index.html",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:lan": "node server.js --lan",
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "icons": "node scripts/make-icons.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -13,7 +18,8 @@
     "javascript",
     "canvas",
     "game",
-    "pacman"
+    "pacman",
+    "pwa"
   ],
   "license": "MIT",
   "private": true

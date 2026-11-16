@@ -1,60 +1,78 @@
 # Pac-Man Arcade
 
-A Pac-Man recreation built with HTML5 Canvas and vanilla JavaScript, featuring five levels, side and corner tunnels, and keyboard controls.
+A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript. Five neon stages, three difficulty levels, an endless mode, an interactive tutorial, and a full English / Portuguese interface. It runs on desktop and mobile, and installs as an offline-capable PWA.
 
-A study project on game loops, grid-based collision, and simple ghost AI. It has no dependencies and no build step.
+<strong><a href="https://nicolas-user15.github.io/pacman-game/" target="_blank" rel="noopener noreferrer">Play online</a></strong>
 
-**[Play online](https://nicolas-user15.github.io/pacman-game/)**
+No dependencies and no build step to play: just ES modules.
 
-## Getting started
+## Run locally
 
-To run it locally you don't need to install anything. Clone the repository and open `index.html` in your browser:
-
-```bash
-git clone https://github.com/nICOLAS-user15/pacman-game.git
-cd pacman-game
-```
-
-If you prefer a local server (requires Node.js 18+), run:
+Requires Node.js 18+. ES modules do not load from `file://`, so use the bundled server:
 
 ```bash
-npm start
+npm start            # http://localhost:8080 (this machine only)
+npm run start:lan    # also reachable from your phone on the same Wi-Fi
 ```
 
-This starts a small dependency-free static server and opens the game in your default browser. Set the `PORT` environment variable to change the port (default: 8080).
+Options: `PORT=3000`, `HOST=0.0.0.0`, `--no-open`.
+
+```bash
+npm test             # unit + integration tests (node:test, no dependencies)
+npm run build        # copies the shippable files to dist/ (used by the Pages deploy)
+```
+
+## Features
+
+- **Modes:** Campaign (5 stages, then a victory screen) and Endless (stages loop, ghosts get faster each lap, with capped speed so it stays playable).
+- **Difficulty:** Easy / Normal / Hard change lives, ghost speed, power-up length and ghost-house release times. Personal bests are stored per mode and difficulty.
+- **Onboarding:** a 5-step "How to play" tutorial opens on the first game, plus one-time contextual tips during play.
+- **Languages:** English (default) and Portuguese, switchable from the menu or Settings. Adding a language means adding one dictionary in `src/i18n.js`; a test enforces matching keys and placeholders.
+- **Controls:** keyboard (arrows / WASD), swipe, on-screen D-pad (auto on touch screens, optional left-handed layout), gamepad, haptic feedback on supported phones.
+- **Accessibility:** zoom allowed, focus management in dialogs and modals, keyboard-navigable menu, screen-reader announcements, reduced-motion option (defaults to the OS setting), labelled controls, touch targets of 44px or more.
 
 ## Controls
 
-| Action | Keys |
-|---|---|
-| Move | Arrow keys or W A S D |
-| Pause / resume | Space |
-| Fullscreen | F |
-| Exit fullscreen | Esc |
-
-## Levels
-
-The game has five mazes. Each one changes the color theme, ghost speed, frightened-mode duration, and how long ghosts wait before leaving their house. Level five has the fastest ghosts.
+| Action | Keyboard | Touch | Gamepad |
+|---|---|---|---|
+| Move | Arrows / WASD | Swipe or D-pad | D-pad / left stick |
+| Pause | Space / P / Esc | Pause button | Start |
+| Fullscreen | F | Fullscreen button | |
+| Mute | M | Sound button | |
 
 ## Project structure
 
 ```
-├── index.html   # Page layout, HUD, and modals
-├── style.css    # Styles and fullscreen layout
-├── game.js      # Game logic: mazes, player, ghosts, scoring, and audio
-├── server.js    # Dependency-free local static server
-├── package.json # npm start script
-└── LICENSE
+index.html            Page markup (no inline scripts or styles, so a strict CSP works)
+style.css             Design tokens, menu, responsive game layout, dialogs
+manifest.webmanifest  PWA manifest
+sw.js                 Service worker (offline support)
+server.js             Hardened dependency-free dev server
+src/
+  config.js           Stages, tiles, difficulties and the pure level-parameter rules
+  entities.js         Pac-Man and ghost movement/AI (fixed-step, DOM-free)
+  game.js             State machine, scoring, rendering, HUD
+  cutscene.js         Intermission animations
+  ui.js, menu-fx.js   Menu, tutorial, settings, scores, animated background
+  input.js            Keyboard, swipe, D-pad, gamepad
+  i18n.js, storage.js, audio.js, sprites.js, app.js, main.js
+test/                 node:test suites
+scripts/              build and icon generation
+.github/workflows/    CI and GitHub Pages deploy
 ```
 
 ## How it works
 
-- **Rendering:** everything is drawn to a single `<canvas>` every frame using `requestAnimationFrame`.
-- **Mazes:** each level is a 19 × 21 matrix where every number represents a cell type: wall, pellet, power pellet, ghost-house door, tunnel, or empty space.
-- **Movement:** the player is locked to the center of corridors, which prevents clipping through walls at corners.
-- **Ghosts:** each ghost picks its next direction by looking toward a target tile on the board. They never reverse, except when eaten or frightened.
-- **Audio:** sound effects are synthesized with the Web Audio API, so there are no audio files.
-- **Persistence:** the high score is stored in `localStorage`.
+- **Fixed timestep:** the simulation advances in exact 1/60 s steps, so game speed is identical on 60, 120 and 144 Hz displays. Rendering happens once per animation frame.
+- **Responsive layout:** the board size is computed in CSS from fixed HUD/control heights and the viewport (`100dvh`, safe-area insets), with dedicated portrait, landscape and desktop modes. The canvas backing store follows `devicePixelRatio`, and the static maze is cached in an offscreen canvas.
+- **Maze:** each stage is a 19 × 21 matrix of tile types. Tests verify frame integrity, ghost house, tunnels, portals and that every pellet is reachable.
+- **Ghosts:** each targets a tile based on its personality (Blinky chases, Pinky aims 4 tiles ahead, Inky 2 tiles ahead, Clyde retreats when close). They never reverse unless forced, and slow down in tunnels.
+- **Audio:** effects are synthesized with the Web Audio API, so there are no audio files.
+- **Server hardening:** allowlisted files only, safe path decoding and traversal checks, GET/HEAD only, strict CSP and security headers, localhost bind by default.
+
+## Deploy
+
+Pushes to `main` run the tests, build `dist/` and publish it with GitHub Pages (`.github/workflows/deploy.yml`). In the repository settings, set **Pages → Source** to **GitHub Actions**. The service worker cache is versioned with the commit SHA, so players get new releases automatically.
 
 ## License
 
