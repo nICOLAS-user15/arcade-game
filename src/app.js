@@ -15,7 +15,7 @@ export class App {
     this.reducedMotionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.coarseQuery = matchMedia('(pointer: coarse)');
     this.anyCoarseQuery = matchMedia('(any-pointer: coarse)');
-    this.smallQuery = matchMedia('(max-width: 900px), (max-height: 500px)');
+    this.smallQuery = matchMedia('(max-width: 600px), (max-height: 500px) and (orientation: landscape)');
     this.touchSeen = false;
 
     this.storage = new Storage(undefined, { prefersReducedMotion: this.reducedMotionQuery.matches });
@@ -57,16 +57,18 @@ export class App {
   }
 
   setLanguage(code) {
-    setLang(code);
+    // Store first: setLang notifies the menu, which reads the current language from the settings
     this.settings.lang = code;
     this.save();
+    setLang(code);
   }
 
   get dpadVisible() {
     const mode = this.settings.dpad;
     if (mode !== 'auto') return mode === 'on';
-    const touchScreen = (navigator.maxTouchPoints || 0) > 0 || this.anyCoarseQuery.matches;
-    return this.coarseQuery.matches || this.touchSeen || (touchScreen && this.smallQuery.matches);
+    // Deliberately generous: missing arrows on a phone is far worse than extra arrows on a touch laptop
+    const touchScreen = (navigator.maxTouchPoints || 0) > 0 || this.anyCoarseQuery.matches || 'ontouchstart' in window;
+    return this.coarseQuery.matches || this.touchSeen || touchScreen || this.smallQuery.matches;
   }
 
   applySettings() {

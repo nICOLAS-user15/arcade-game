@@ -12,9 +12,12 @@ const PREFIX = 'pacman_';
 const LEGACY_HIGH_SCORE_KEY = 'pacman_high_score';
 
 export const DPAD_MODES = ['auto', 'on', 'off'];
+/** Bumped when a saved setting must be reset once (v2: D-pad back to "auto" after the detection fix). */
+export const SETTINGS_VERSION = 2;
 
 export function defaultSettings(prefersReducedMotion = false) {
   return {
+    version: SETTINGS_VERSION,
     lang: DEFAULT_LANG,
     sfx: true,
     haptics: true,
@@ -91,6 +94,10 @@ export class Storage {
       for (const key of Object.keys(s)) {
         if (typeof saved[key] === typeof s[key]) s[key] = saved[key];
       }
+    }
+    if (saved?.version !== SETTINGS_VERSION) {
+      s.dpad = 'auto';
+      s.version = SETTINGS_VERSION;
     }
     // Sanitize anything that could have been edited by hand
     if (!isSupported(s.lang)) s.lang = DEFAULT_LANG;

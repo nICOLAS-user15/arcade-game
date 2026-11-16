@@ -425,7 +425,7 @@ export class Game {
 
   addScore(pts) {
     this.score += pts;
-    if (!this.extraLifeGiven && this.score >= SCORE.EXTRA_LIFE_AT) {
+    if (this.difficulty.extraLife && !this.extraLifeGiven && this.score >= SCORE.EXTRA_LIFE_AT) {
       this.extraLifeGiven = true;
       this.lives++;
       this.updateLives();
@@ -626,7 +626,7 @@ export class Game {
   /**
    * Walls never change during a stage, so they are painted once into an offscreen canvas.
    * Wall tiles are merged into continuous shapes (see paintWallShape) and each theme decides how
-   * to paint them: arcade outline, 8-bit bevelled blocks, neon tubes, soft candy or a hairline.
+   * to paint them: arcade outline, 8-bit bevelled blocks, soft candy or brutalist slabs.
    */
   buildMazeCache(scale) {
     const w = Math.round(LOGICAL_W * scale);
@@ -673,21 +673,38 @@ export class Game {
         stamp(out, shape(wl.inset, wl.radius, look.wall));
         stamp(out, shape(wl.core, Math.max(0, wl.radius - (wl.core - wl.inset)), look.core));
         break;
-      case 'neon': {
-        stamp(out, shape(wl.inset, wl.radius, look.fill));
-        const tube = band(wl.inset, wl.width, wl.radius, look.wall);
-        out.g.save();
-        out.g.shadowColor = look.wall;
-        out.g.shadowBlur = 7 * scale;
-        stamp(out, tube);
-        out.g.restore();
-        stamp(out, tube);
+      case 'slab': {
+        // Brutalist: square monochrome slabs, a different raw texture on every stage
+        const edge = () => band(wl.inset, 2, 0, look.wall);
+        if (look.pattern === 'frame') {
+          stamp(out, band(wl.inset, 3, 0, look.wall));
+        } else if (look.pattern === 'groove') {
+          stamp(out, shape(wl.inset, 0, look.wall));
+          stamp(out, band(wl.inset + 3.5, 1.5, 0, '#000'), 'destination-out');
+        } else if (look.pattern === 'hatch' || look.pattern === 'dots') {
+          const tex = layer();
+          tex.g.fillStyle = look.wall;
+          tex.g.strokeStyle = look.wall;
+          tex.g.lineWidth = 1.6;
+          tex.g.beginPath();
+          if (look.pattern === 'hatch') {
+            for (let k = -LOGICAL_H; k < LOGICAL_W; k += 5) {
+              tex.g.moveTo(k, 0);
+              tex.g.lineTo(k + LOGICAL_H, LOGICAL_H);
+            }
+            tex.g.stroke();
+          } else {
+            for (let y = 2; y < LOGICAL_H; y += 4) for (let x = 2; x < LOGICAL_W; x += 4) tex.g.rect(x - 0.8, y - 0.8, 1.6, 1.6);
+            tex.g.fill();
+          }
+          stamp(tex, shape(wl.inset, 0, '#000'), 'destination-in');
+          stamp(out, tex);
+          stamp(out, edge());
+        } else {
+          stamp(out, shape(wl.inset, 0, look.wall));
+        }
         break;
       }
-      case 'line':
-        stamp(out, shape(wl.inset, wl.radius, look.fill));
-        stamp(out, band(wl.inset, wl.width, wl.radius, look.wall));
-        break;
       default: // 'outline'
         stamp(out, band(wl.inset, wl.width, wl.radius, look.wall));
     }

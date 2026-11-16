@@ -47,6 +47,10 @@ export class Starfield {
     const { ctx, w, h } = this;
     const animate = !calm;
     ctx.clearRect(0, 0, w, h);
+    if (look.style === 'bubbles') {
+      this.drawBubbles(time, animate, look);
+      return;
+    }
 
     // Perspective grid floor
     ctx.strokeStyle = look.grid;
@@ -83,6 +87,46 @@ export class Starfield {
         ctx.arc(x * w, y, size, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+  }
+
+  /** Pastel theme: big soft candy-colored bubbles rising slowly, plus a few sparkles. */
+  drawBubbles(time, animate, look) {
+    const { ctx, w, h } = this;
+    const count = Math.min(14, this.stars.length);
+    for (let i = 0; i < count; i++) {
+      const s = this.stars[i];
+      const r = (0.08 + s.z * 0.14) * Math.min(w, h) + 30;
+      const rise = animate ? (time * 0.000012 * (0.4 + s.z)) % 1 : 0;
+      const y = ((((s.y - rise) % 1) + 1) % 1) * (h + 2 * r) - r;
+      const x = s.x * w + (animate ? Math.sin(time * 0.0004 + s.tw) * 24 : 0);
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+      const color = look.colors[i % look.colors.length];
+      g.addColorStop(0, `${color}cc`);
+      g.addColorStop(1, `${color}00`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = count; i < this.stars.length; i++) {
+      const s = this.stars[i];
+      const a = 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(time * 0.002 + s.tw));
+      const x = s.x * w;
+      const y = s.y * h;
+      const size = 1 + s.z * 2.2;
+      ctx.fillStyle = `rgba(${look.star}, ${a.toFixed(3)})`;
+      ctx.beginPath(); // four-point sparkle
+      ctx.moveTo(x, y - size * 2);
+      ctx.lineTo(x + size * 0.5, y - size * 0.5);
+      ctx.lineTo(x + size * 2, y);
+      ctx.lineTo(x + size * 0.5, y + size * 0.5);
+      ctx.lineTo(x, y + size * 2);
+      ctx.lineTo(x - size * 0.5, y + size * 0.5);
+      ctx.lineTo(x - size * 2, y);
+      ctx.lineTo(x - size * 0.5, y - size * 0.5);
+      ctx.closePath();
+      ctx.fill();
     }
   }
 }

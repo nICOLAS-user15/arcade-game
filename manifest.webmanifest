@@ -1,7 +1,7 @@
 {
   "name": "Pac-Man Arcade",
   "short_name": "Pac-Man",
-  "description": "5 stages, 5 visual themes, 3 difficulty levels and an endless mode. Play on desktop or mobile.",
+  "description": "5 stages, 4 visual themes, 4 difficulty levels and an endless mode. Play on desktop or mobile.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

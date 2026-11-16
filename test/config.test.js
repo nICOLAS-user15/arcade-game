@@ -122,13 +122,24 @@ test('level numbers map onto stages and loops', () => {
 });
 
 test('difficulty scales lives and speed in the expected direction', () => {
-  const { easy, normal, hard } = DIFFICULTIES;
-  assert.ok(easy.lives > normal.lives && normal.lives > hard.lives);
+  const order = ['easy', 'normal', 'hard', 'hardcore'].map((id) => DIFFICULTIES[id]);
+  assert.deepEqual(Object.keys(DIFFICULTIES), order.map((d) => d.id));
   const speed = (d) => levelParams(3, d).ghostSpeed;
-  assert.ok(speed(easy) < speed(normal) && speed(normal) < speed(hard));
   const fright = (d) => levelParams(3, d).frightenedDuration;
-  assert.ok(fright(easy) > fright(normal) && fright(normal) > fright(hard));
-  assert.ok(levelParams(3, easy).ghostReleases[1] > levelParams(3, hard).ghostReleases[1]);
+  const release = (d) => levelParams(3, d).ghostReleases[1];
+  for (let i = 1; i < order.length; i++) {
+    const [easier, harder] = [order[i - 1], order[i]];
+    assert.ok(easier.lives > harder.lives, `${harder.id}: fewer lives`);
+    assert.ok(speed(easier) < speed(harder), `${harder.id}: faster ghosts`);
+    assert.ok(fright(easier) > fright(harder), `${harder.id}: shorter power-ups`);
+    assert.ok(release(easier) > release(harder), `${harder.id}: ghosts leave the house sooner`);
+  }
+});
+
+test('Hardcore: a single life and no extra life', () => {
+  assert.equal(DIFFICULTIES.hardcore.lives, 1);
+  assert.equal(DIFFICULTIES.hardcore.extraLife, false);
+  for (const id of ['easy', 'normal', 'hard']) assert.equal(DIFFICULTIES[id].extraLife, true);
 });
 
 test('level 1 on Normal reproduces the stage values untouched', () => {

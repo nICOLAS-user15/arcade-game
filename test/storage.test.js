@@ -31,13 +31,25 @@ test('hand-edited or corrupt settings are sanitized', () => {
   assert.equal(s.difficulty, 'normal');
   assert.equal(s.mode, 'campaign');
   assert.equal(s.dpad, 'auto');
-  assert.equal(s.theme, 'modern', 'unknown theme falls back to the default');
+  assert.equal(s.theme, 'classic', 'unknown theme falls back to the default');
   assert.equal(s.sfx, true, 'wrong type falls back to the default');
   assert.equal(s.haptics, false, 'valid values survive');
   assert.equal('leftHanded' in s, false, 'removed settings are dropped');
 
   backend.setItem('pacman_settings', '{not json');
   assert.deepEqual(new Storage(backend).loadSettings(), defaultSettings());
+});
+
+test('settings saved before v2 get the D-pad back to "auto" once', () => {
+  const backend = new MemoryBackend();
+  backend.setItem('pacman_settings', JSON.stringify({ dpad: 'off', theme: 'modern', lang: 'pt' }));
+  const st = new Storage(backend);
+  const s = st.loadSettings();
+  assert.equal(s.dpad, 'auto');
+  assert.equal(s.theme, 'classic', 'the removed Modern theme falls back to the default');
+  assert.equal(s.lang, 'pt', 'other choices are kept');
+  st.saveSettings({ ...s, dpad: 'off' });
+  assert.equal(st.loadSettings().dpad, 'off', 'a choice made after the reset sticks');
 });
 
 test('personal bests are tracked per mode and difficulty', () => {

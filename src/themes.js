@@ -1,14 +1,16 @@
 /**
- * Visual themes. A theme restyles the maze (how walls are drawn plus one palette per stage),
+ * Visual themes. A theme restyles the maze (how walls are drawn plus one look per stage),
  * the sprites, the menu background, the cutscenes and, through html[data-theme], the CSS interface.
- * Every theme keeps each stage's hue (blue, green, red, gold, violet) so the stage names fit them all.
+ * Colorful themes keep each stage's hue (blue, green, red, gold, violet) so the stage names fit;
+ * the monochrome Minimal theme changes the wall texture per stage instead.
  * DOM-free so it can be unit-tested in Node.
  */
 
-export const DEFAULT_THEME = 'modern';
-export const THEME_IDS = ['classic', 'retro', 'modern', 'pastel', 'minimal'];
+export const DEFAULT_THEME = 'classic';
+export const THEME_IDS = ['classic', 'retro', 'pastel', 'minimal'];
 
 const PIXEL_FONT = { family: '"Press Start 2P", monospace', weight: '', scale: 1 };
+const MONO_FONT = { family: 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace', weight: '700 ', scale: 1.25 };
 
 export const THEMES = Object.freeze({
   classic: {
@@ -19,12 +21,12 @@ export const THEMES = Object.freeze({
     font: PIXEL_FONT,
     banner: '#ffff00',
     skin: {
-      pacman: '#ffff00', glow: false, pellet: '#ffb8ae', pelletShape: 'square', pelletSize: 2.2,
+      pacman: '#ffff00', glow: true, pellet: '#ffb8ae', pelletShape: 'square', pelletSize: 2.2,
       power: '#ffb8ae', powerRing: null, scared: '#2121ff', scaredFace: '#ffb8ae',
       flash: '#ffffff', flashFace: '#ff0000', pupil: '#2121ff', door: '#ffb8ff'
     },
     ghosts: { Blinky: '#ff0000', Pinky: '#ffb8ff', Inky: '#00ffff', Clyde: '#ffb852' },
-    menu: { grid: 'rgba(33, 33, 222, 0.3)', star: '255, 255, 255', square: false },
+    menu: { style: 'stars', grid: 'rgba(33, 33, 222, 0.3)', star: '255, 255, 255', square: false },
     cutscene: { bg: '#000000', floor: '#2121de', title: '#ffff00', accent: '#00ffff' },
     stages: [
       { wall: '#2121de', bg: '#000000' },
@@ -49,7 +51,7 @@ export const THEMES = Object.freeze({
       portalRing: '#3cbcfc', portalCore: '#f878f8'
     },
     ghosts: { Blinky: '#f83800', Pinky: '#f878f8', Inky: '#3cbcfc', Clyde: '#fca044' },
-    menu: { grid: 'rgba(32, 56, 236, 0.32)', star: '252, 252, 252', square: true },
+    menu: { style: 'stars', grid: 'rgba(32, 56, 236, 0.32)', star: '252, 252, 252', square: true },
     cutscene: { bg: '#000000', floor: '#2038ec', title: '#f8d800', accent: '#3cbcfc' },
     stages: [
       { wall: '#2038ec', bg: '#000000' },
@@ -60,33 +62,9 @@ export const THEMES = Object.freeze({
     ]
   },
 
-  modern: {
-    id: 'modern',
-    chrome: '#060811',
-    walls: { style: 'neon', inset: 3, width: 2, radius: 5 },
-    pixel: 1,
-    font: PIXEL_FONT,
-    banner: '#ffeb3b',
-    skin: {
-      pacman: '#ffe600', glow: true, pellet: '#ffdedb', pelletShape: 'round', pelletSize: 2.5,
-      power: '#ffdedb', powerRing: '#ffffff', scared: '#1d4ed8', scaredFace: '#ffb8b8',
-      flash: '#ffffff', flashFace: '#d90429', pupil: '#0022cc', door: '#ffb8ff'
-    },
-    ghosts: { Blinky: '#ff2a2a', Pinky: '#ffb8ff', Inky: '#22e6ff', Clyde: '#ffb852' },
-    menu: { grid: 'rgba(33, 70, 255, 0.18)', star: '190, 210, 255', square: false },
-    cutscene: { bg: '#060814', floor: '#2563eb', title: '#ffeb3b', accent: '#38bdf8' },
-    stages: [
-      { wall: '#2b5bff', bg: '#02030a', fill: '#090d24' },
-      { wall: '#00ff88', bg: '#02120a', fill: '#062917' },
-      { wall: '#ff007f', bg: '#14010a', fill: '#290416' },
-      { wall: '#ffb703', bg: '#140c01', fill: '#2b1b04' },
-      { wall: '#a855f7', bg: '#0c0217', fill: '#200738' }
-    ]
-  },
-
   pastel: {
     id: 'pastel',
-    chrome: '#1b1530',
+    chrome: '#ffe3ec',
     walls: { style: 'soft', inset: 2, radius: 8, core: 5.5 },
     pixel: 1,
     font: PIXEL_FONT,
@@ -98,7 +76,7 @@ export const THEMES = Object.freeze({
       portalRing: '#9be7d8', portalCore: '#ff9ab0'
     },
     ghosts: { Blinky: '#ff6b81', Pinky: '#ffb3e6', Inky: '#7fe0ef', Clyde: '#ffc285' },
-    menu: { grid: 'rgba(255, 154, 176, 0.16)', star: '255, 222, 235', square: false },
+    menu: { style: 'bubbles', colors: ['#ffb3c7', '#c3a6ff', '#9be7d8', '#ffd76e', '#8fb4ff'], star: '255, 255, 255' },
     cutscene: { bg: '#1b1530', floor: '#ff9ab0', title: '#ffd76e', accent: '#9be7d8' },
     stages: [
       { wall: '#8fb4ff', core: '#d3e2ff', bg: '#1a1a33' },
@@ -111,26 +89,27 @@ export const THEMES = Object.freeze({
 
   minimal: {
     id: 'minimal',
-    chrome: '#0d0e10',
-    walls: { style: 'line', inset: 5, width: 1.25, radius: 4 },
+    chrome: '#000000',
+    walls: { style: 'slab', inset: 2, radius: 0 },
     pixel: 1,
-    font: { family: 'Rajdhani, system-ui, sans-serif', weight: '700 ', scale: 1.5 },
-    banner: '#e9eaec',
+    font: MONO_FONT,
+    banner: '#ffffff',
     skin: {
-      pacman: '#f2d57e', glow: false, pellet: '#9aa1aa', pelletShape: 'round', pelletSize: 1.8,
-      power: '#e9eaec', powerRing: null, scared: '#5b6b8f', scaredFace: '#e9eaec',
-      flash: '#e9eaec', flashFace: '#5b6b8f', pupil: '#2a2f38', door: '#6b7280',
-      portalRing: '#a9bccd', portalCore: '#e9eaec'
+      pacman: '#ffffff', glow: false, pellet: '#ffffff', pelletShape: 'square', pelletSize: 1.6,
+      power: '#ffffff', powerShape: 'square', powerRing: null, scared: '#4a4a4a', scaredFace: '#ffffff',
+      flash: '#ffffff', flashFace: '#000000', pupil: '#000000', door: '#ffffff',
+      portalRing: '#ffffff', portalCore: '#7a7a7a'
     },
-    ghosts: { Blinky: '#e07a7a', Pinky: '#e3a9cf', Inky: '#7cc4cf', Clyde: '#dcb07e' },
-    menu: { grid: 'rgba(255, 255, 255, 0.05)', star: '214, 218, 224', square: false },
-    cutscene: { bg: '#0d0e10', floor: '#3a3f47', title: '#e9eaec', accent: '#a9bccd' },
+    ghosts: { Blinky: '#e05a5a', Pinky: '#e39acb', Inky: '#6cc3cf', Clyde: '#e0a868' },
+    menu: { style: 'stars', grid: 'rgba(255, 255, 255, 0.08)', star: '255, 255, 255', square: true },
+    cutscene: { bg: '#000000', floor: '#ffffff', title: '#ffffff', accent: '#bdbdbd' },
+    // Monochrome on purpose: each stage gets a different raw concrete-like wall texture
     stages: [
-      { wall: '#8fa3b8', bg: '#0d0e10', fill: '#14171b' },
-      { wall: '#93ab9b', bg: '#0d0e10', fill: '#141815' },
-      { wall: '#b89393', bg: '#0d0e10', fill: '#191415' },
-      { wall: '#b8a98a', bg: '#0d0e10', fill: '#181612' },
-      { wall: '#a597b8', bg: '#0d0e10', fill: '#16141a' }
+      { wall: '#ffffff', bg: '#000000', pattern: 'solid' },
+      { wall: '#ffffff', bg: '#000000', pattern: 'hatch' },
+      { wall: '#ffffff', bg: '#000000', pattern: 'frame' },
+      { wall: '#ffffff', bg: '#000000', pattern: 'groove' },
+      { wall: '#ffffff', bg: '#000000', pattern: 'dots' }
     ]
   }
 });
@@ -145,7 +124,7 @@ export function stageLook(theme, stageIndex) {
   return { ...s, glow: rgba(s.wall, 0.5) };
 }
 
-/** Canvas font string for a theme (the minimal theme swaps the pixel font for a clean sans). */
+/** Canvas font string for a theme (Minimal swaps the pixel font for a bold monospace). */
 export function canvasFont(theme, px) {
   const f = theme.font;
   return `${f.weight}${Math.round(px * f.scale)}px ${f.family}`;

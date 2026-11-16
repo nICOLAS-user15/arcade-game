@@ -55,12 +55,13 @@ export const GAME_MODES = Object.freeze({
 
 /**
  * Difficulty only scales the existing stage values, so the five stages keep their identity.
- * speed/fright/release are multipliers; lives is the starting count.
+ * speed/fright/release are multipliers; lives is the starting count; extraLife grants one more at 10,000 points.
  */
 export const DIFFICULTIES = Object.freeze({
-  easy: { id: 'easy', lives: 5, ghostSpeed: 0.85, fright: 1.3, release: 1.35 },
-  normal: { id: 'normal', lives: 3, ghostSpeed: 1, fright: 1, release: 1 },
-  hard: { id: 'hard', lives: 2, ghostSpeed: 1.1, fright: 0.7, release: 0.7 }
+  easy: { id: 'easy', lives: 5, ghostSpeed: 0.85, fright: 1.3, release: 1.35, extraLife: true },
+  normal: { id: 'normal', lives: 3, ghostSpeed: 1, fright: 1, release: 1, extraLife: true },
+  hard: { id: 'hard', lives: 2, ghostSpeed: 1.1, fright: 0.7, release: 0.7, extraLife: true },
+  hardcore: { id: 'hardcore', lives: 1, ghostSpeed: 1.18, fright: 0.5, release: 0.45, extraLife: false }
 });
 
 export const GHOST_DEFS = Object.freeze([

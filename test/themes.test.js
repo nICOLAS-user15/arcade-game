@@ -10,7 +10,8 @@ import { DICT } from '../src/i18n.js';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const HEX = /^#[0-9a-f]{6}$/i;
-const WALL_STYLES = ['outline', 'block', 'neon', 'soft', 'line'];
+const WALL_STYLES = ['outline', 'block', 'soft', 'slab'];
+const SLAB_PATTERNS = ['solid', 'hatch', 'frame', 'groove', 'dots'];
 
 test('the theme list and the theme table agree, and the default exists', () => {
   assert.deepEqual(Object.keys(THEMES), THEME_IDS);
@@ -27,9 +28,10 @@ for (const theme of Object.values(THEMES)) {
       assert.match(s.wall, HEX);
       assert.match(s.bg, HEX);
       if (theme.walls.style === 'soft') assert.match(s.core, HEX, 'soft walls need a core color');
-      if (theme.walls.style === 'neon' || theme.walls.style === 'line') assert.match(s.fill, HEX, `${theme.walls.style} walls need a fill`);
+      if (theme.walls.style === 'slab') assert.ok(SLAB_PATTERNS.includes(s.pattern), `unknown slab pattern ${s.pattern}`);
     }
-    assert.equal(new Set(theme.stages.map((s) => s.wall)).size, PHASE_COUNT, 'every stage looks different');
+    const looks = new Set(theme.stages.map((s) => `${s.wall}|${s.pattern || ''}`));
+    assert.equal(looks.size, PHASE_COUNT, 'every stage looks different');
   });
 
   test(`theme ${theme.id}: sprites, ghosts, menu and cutscene colors`, () => {
@@ -38,7 +40,9 @@ for (const theme of Object.values(THEMES)) {
     }
     assert.ok(theme.skin.pelletSize > 0);
     for (const g of GHOST_DEFS) assert.match(theme.ghosts[g.name], HEX, g.name);
-    assert.ok(theme.menu.grid && theme.menu.star);
+    assert.ok(theme.menu.star);
+    if (theme.menu.style === 'bubbles') assert.ok(theme.menu.colors.every((c) => HEX.test(c)));
+    else assert.ok(theme.menu.grid);
     for (const key of ['bg', 'floor', 'title', 'accent']) assert.match(theme.cutscene[key], HEX, `cutscene.${key}`);
     assert.match(theme.chrome, HEX);
     assert.ok(theme.pixel >= 1);
@@ -67,6 +71,20 @@ test('color helpers', () => {
   assert.equal(shade('#808080', 0), '#808080');
   assert.equal(shade('#000000', 1), '#ffffff');
   assert.equal(shade('#ffffff', -1), '#000000');
-  assert.equal(canvasFont(THEMES.modern, 8), '8px "Press Start 2P", monospace');
-  assert.equal(canvasFont(THEMES.minimal, 8), '700 12px Rajdhani, system-ui, sans-serif');
+  assert.equal(canvasFont(THEMES.classic, 8), '8px "Press Start 2P", monospace');
+  assert.match(canvasFont(THEMES.minimal, 8), /^700 10px .*monospace$/);
+});
+
+test('the Minimal theme is black and white with a white Pac-Man', () => {
+  const m = THEMES.minimal;
+  assert.equal(m.skin.pacman, '#ffffff');
+  for (const s of m.stages) {
+    assert.equal(s.wall, '#ffffff');
+    assert.equal(s.bg, '#000000');
+  }
+});
+
+test('the old Modern theme is gone and falls back to the default', () => {
+  assert.equal(THEMES.modern, undefined);
+  assert.equal(getTheme('modern').id, DEFAULT_THEME);
 });
