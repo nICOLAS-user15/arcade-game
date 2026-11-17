@@ -19,7 +19,7 @@ import { HAPTICS } from './audio.js';
 import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
-import { cleanName } from './storage.js';
+import { typingName } from './storage.js';
 
 const MODALS = ['pauseModal', 'briefingModal', 'standardModal', 'initialsModal'];
 const TAU = Math.PI * 2;
@@ -33,6 +33,14 @@ const HIT_STOP = 0.12;
 const HIT_DISTANCE = 0.6;
 const EAT_DISTANCE = 0.75;
 const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
+/**
+ * The 3-2-1 countdown under "READY!", in seconds. Always three digits, only the pace changes:
+ * a full second each when a stage starts, quicker after losing a life, quickest between endless
+ * levels (just enough to read the new maze, so the run keeps its rhythm).
+ */
+const COUNTDOWN = Object.freeze({ stage: 3, respawn: 2.1, endless: 1.8 });
+const COUNTDOWN_DIGITS = 3;
+const GO_TIME = 0.5; // "GO!" stays on screen this long once play starts
 /** Seconds between the chirps of ghost eyes racing home. */
 const RETREAT_EVERY = 0.16;
 /** The stage music speeds up by up to this much while the last quarter of the pellets is eaten. */
@@ -204,9 +212,7 @@ export class Game {
   beginLevel(fresh) {
     this.hideOverlay();
     this.cutscene = null;
-    this.state = 'READY';
-    this.readyTimer = fresh ? 2 : 1.4;
-    this.acc = 0;
+    this.startCountdown(fresh ? COUNTDOWN.stage : COUNTDOWN.respawn);
     this.updatePauseButton();
     this.warnSlot = 0;
     this.eyesTimer = 0;
@@ -217,6 +223,44 @@ export class Game {
       this.app.announce(t('sr.stageStart', { name: t(`phase.${this.phase.id}.name`) }));
       if (this.phase.portals.length) this.hint('portal', 'hint.portal');
       else if (this.level === 1) this.hint('move', this.app.dpadVisible ? 'hint.move.touch' : 'hint.move.keys');
+    }
+  }
+
+  /** READY state: the board is frozen while 3-2-1 counts down; the player can already pick a direction. */
+  startCountdown(seconds) {
+    this.state = 'READY';
+    this.readyTimer = seconds;
+    this.readyTotal = seconds;
+    this.countDigit = 0;
+    this.goTimer = 0;
+    this.acc = 0;
+  }
+
+  /** The digit on screen (3, 2 or 1) for the current countdown. */
+  get countdownDigit() {
+    const left = Math.max(0, this.readyTimer) / (this.readyTotal || 1);
+    return Math.min(COUNTDOWN_DIGITS, Math.max(1, Math.ceil(left * COUNTDOWN_DIGITS)));
+  }
+
+  /** 0..1 progress through the current digit, for its pop-in animation. */
+  get countdownPhase() {
+    const step = (this.readyTotal || 1) / COUNTDOWN_DIGITS;
+    const left = Math.max(0, this.readyTimer);
+    return 1 - (left - (this.countdownDigit - 1) * step) / step;
+  }
+
+  tickCountdown() {
+    this.readyTimer -= STEP;
+    const digit = this.countdownDigit;
+    if (this.readyTimer > 0 && digit !== this.countDigit) {
+      this.countDigit = digit;
+      this.app.sound.countdown(false);
+    }
+    if (this.readyTimer <= 0) {
+      this.state = 'PLAYING';
+      this.goTimer = GO_TIME;
+      this.app.sound.countdown(true);
+      this.app.haptics.play(HAPTICS.tap);
     }
   }
 
@@ -280,10 +324,10 @@ export class Game {
     switch (this.state) {
       case 'READY':
         this.updateEffects();
-        this.readyTimer -= STEP;
-        if (this.readyTimer <= 0) this.state = 'PLAYING';
+        this.tickCountdown();
         break;
       case 'PLAYING':
+        if (this.goTimer > 0) this.goTimer -= STEP;
         this.simulate();
         break;
       case 'DYING':
@@ -510,9 +554,7 @@ export class Game {
     this.resetWaves();
     this.ghostCombo = 0;
     this.hitStop = 0;
-    this.state = 'READY';
-    this.readyTimer = 1.4;
-    this.acc = 0;
+    this.startCountdown(COUNTDOWN.respawn);
   }
 
   addScore(pts) {
@@ -573,8 +615,8 @@ export class Game {
   }
 
   /**
-   * Endless mode never stops between levels: no cutscene, no briefing, no READY.
-   * The next maze loads and Pac-Man keeps the direction the player was steering.
+   * Endless mode never stops between levels: no cutscene and no briefing, only a quick 3-2-1 so the
+   * new maze can be read. Pac-Man keeps the direction the player was steering, and the music plays on.
    */
   continueEndless() {
     const { dir, nextDir } = this.pacman;
@@ -583,8 +625,7 @@ export class Game {
     this.pacman.setDirection(nextDir || dir);
     this.hideOverlay();
     this.cutscene = null;
-    this.state = 'PLAYING';
-    this.acc = 0;
+    this.startCountdown(COUNTDOWN.endless);
     this.warnSlot = 0;
     this.eyesTimer = 0;
     this.app.sound.duckMusic(false);
@@ -695,7 +736,7 @@ export class Game {
   }
 
   /**
-   * Arcade-style initials prompt when the finished run makes the top-10 table.
+   * Name prompt when the finished run makes the top-10 table.
    * Calls done(rank) with the zero-based position, or -1 when nothing was saved.
    */
   askInitials(done) {
@@ -979,8 +1020,26 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
-    if (this.state === 'READY') this.drawBanner(ctx, t('canvas.ready'), this.theme.banner);
+    if (this.state === 'READY') this.drawCountdown(ctx);
+    if (this.state === 'PLAYING' && this.goTimer > 0) this.drawGo(ctx);
     if (this.state === 'STAGE_CLEAR') this.drawStageClear(ctx, now);
+  }
+
+  /** "READY!" with the 3-2-1 below it; each digit pops in and fades out (static with reduced motion). */
+  drawCountdown(ctx) {
+    const color = this.theme.banner;
+    this.drawBanner(ctx, t('canvas.ready'), color, { size: 10, dy: -12 });
+    const p = this.countdownPhase;
+    const still = this.app.reduceMotion;
+    const scale = still ? 1 : 1 + 0.7 * Math.max(0, 1 - p / 0.3) ** 2;
+    const alpha = still ? 1 : Math.min(1, (1 - p) / 0.25);
+    this.drawBanner(ctx, String(this.countdownDigit), color, { size: 18, dy: 13, scale, alpha });
+  }
+
+  drawGo(ctx) {
+    const k = Math.max(0, this.goTimer / GO_TIME); // 1 → 0
+    const still = this.app.reduceMotion;
+    this.drawBanner(ctx, t('canvas.go'), this.theme.banner, { size: 16, scale: still ? 1 : 1 + (1 - k) * 0.5, alpha: still ? 1 : k });
   }
 
   drawCollectibles(ctx, now) {
@@ -1023,16 +1082,23 @@ export class Game {
     ctx.globalAlpha = 1;
   }
 
-  drawBanner(ctx, text, color) {
-    const y = SPAWN.fruit.row * TILE_SIZE + TILE_SIZE / 2;
-    ctx.font = canvasFont(this.theme, 12);
+  /** Centered text on the fruit row (where "READY!" appears in the arcade), outlined for contrast. */
+  drawBanner(ctx, text, color, { size = 12, dy = 0, scale = 1, alpha = 1 } = {}) {
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.translate(LOGICAL_W / 2, SPAWN.fruit.row * TILE_SIZE + TILE_SIZE / 2 + dy);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
+    ctx.font = canvasFont(this.theme, size);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-    ctx.strokeText(text, LOGICAL_W / 2, y);
+    ctx.strokeText(text, 0, 0);
     ctx.fillStyle = color;
-    ctx.fillText(text, LOGICAL_W / 2, y);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
   }
 
   drawStageClear(ctx, now) {
@@ -1268,10 +1334,19 @@ export class Game {
     press('btnSecondary', () => this.resultActions?.secondary());
     press('btnInitialsSave', () => this.initialsActions?.save());
     press('btnInitialsSkip', () => this.initialsActions?.skip());
-    $('initialsInput').addEventListener('input', (e) => {
-      e.target.value = cleanName(e.target.value);
+    const nameInput = $('initialsInput');
+    // Only rewrite the value when something was filtered out (keeps the caret where it is), and
+    // never in the middle of an IME / predictive-keyboard composition, which would break typing.
+    const filterName = () => {
+      const clean = typingName(nameInput.value);
+      if (clean !== nameInput.value) nameInput.value = clean;
+    };
+    nameInput.addEventListener('input', (e) => {
+      if (!e.isComposing) filterName();
     });
-    $('initialsInput').addEventListener('keydown', (e) => {
+    nameInput.addEventListener('compositionend', filterName);
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
       if (e.code === 'Enter' || e.code === 'NumpadEnter') {
         e.preventDefault();
         this.initialsActions?.save();

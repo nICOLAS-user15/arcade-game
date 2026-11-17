@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-dpad="off" data-theme="classic">
+<html lang="en" data-dpad="on" data-theme="classic">
 <head>
   <meta charset="UTF-8">
   <!-- GitHub Pages cannot send HTTP headers, so the CSP also lives here (same policy as server.js;
@@ -254,8 +254,8 @@
               <h2 id="initialsTitle" data-i18n="initials.title">NEW HIGH SCORE!</h2>
               <p id="initialsRank" class="modal-text"></p>
               <label class="initials-field">
-                <span class="field-label" data-i18n="initials.prompt">Enter your initials</span>
-                <input id="initialsInput" type="text" maxlength="3" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
+                <span class="field-label" data-i18n="initials.prompt">Enter your name</span>
+                <input id="initialsInput" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done">
               </label>
               <div class="modal-actions">
                 <button type="button" id="btnInitialsSave" class="btn-primary small" data-i18n="initials.save">SAVE</button>
@@ -443,18 +443,59 @@
         </label>
 
         <div class="setting">
-          <span class="setting-text"><b data-i18n="settings.dpad">On-screen D-pad</b><small data-i18n="settings.dpad.hint">Auto shows it on touch screens</small></span>
-          <div id="dpadPicker" class="segmented three" role="radiogroup" data-i18n-aria="settings.dpad">
-            <button type="button" role="radio" aria-checked="true" data-dpad="auto" data-i18n="settings.auto">Auto</button>
-            <button type="button" role="radio" aria-checked="false" data-dpad="on" data-i18n="settings.on">On</button>
+          <span class="setting-text"><b data-i18n="settings.dpad">On-screen D-pad</b><small data-i18n="settings.dpad.hint">Arrows for touch play</small></span>
+          <div id="dpadPicker" class="segmented" role="radiogroup" data-i18n-aria="settings.dpad">
+            <button type="button" role="radio" aria-checked="true" data-dpad="on" data-i18n="settings.on">On</button>
             <button type="button" role="radio" aria-checked="false" data-dpad="off" data-i18n="settings.off">Off</button>
           </div>
+        </div>
+
+        <div class="setting credits-row">
+          <span class="setting-text"><b data-i18n="settings.credits">Credits</b><small data-i18n="settings.credits.hint">About the game and who made it</small></span>
+          <button type="button" id="btnCredits" class="btn-ghost" data-i18n="settings.credits.btn">View</button>
         </div>
 
         <div class="setting danger-zone">
           <span class="setting-text"><b data-i18n="settings.reset">Reset progress</b><small data-i18n="settings.reset.hint">Erases scores and tutorial progress</small></span>
           <button type="button" id="btnReset" class="btn-ghost danger" data-i18n="settings.reset.btn">Reset</button>
         </div>
+      </div>
+    </dialog>
+
+    <dialog id="creditsDialog" class="dialog" aria-labelledby="creditsTitle">
+      <div class="dialog-head">
+        <h2 id="creditsTitle" data-i18n="credits.title">CREDITS</h2>
+        <button type="button" class="icon-btn" data-close data-i18n-aria="btn.close" data-i18n-title="btn.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="credits">
+        <div class="credits-hero">
+          <canvas id="creditsSprite" width="56" height="56" aria-hidden="true"></canvas>
+          <div>
+            <p class="credits-by" data-i18n="credits.by">Designed and developed by</p>
+            <p class="credits-name">Nicolas de Moura</p>
+          </div>
+        </div>
+        <section class="credits-block">
+          <h3 data-i18n="credits.project.title">THE PROJECT</h3>
+          <p data-i18n="credits.project.text">Pac-Man Arcade was conceived and built as an academic study project, to practise making a complete web game from scratch.</p>
+          <p data-i18n="credits.project.text2">It covers game design, ghost AI, synthesized music, a responsive layout for phones and desktops, accessibility, automated tests, security and publishing as an installable app.</p>
+        </section>
+        <section class="credits-block">
+          <h3 data-i18n="credits.ai.title">MADE WITH AI</h3>
+          <p data-i18n="credits.ai.text">Artificial intelligence (Claude, by Anthropic) was used throughout as a programming assistant. Learning to work well with AI was one of the goals of the project.</p>
+          <p data-i18n="credits.ai.text2">The idea, the creative direction, every design decision, the playtesting and the review of each change are Nicolas's work.</p>
+        </section>
+        <section class="credits-block">
+          <h3 data-i18n="credits.tech.title">TECHNOLOGY</h3>
+          <p data-i18n="credits.tech.text">HTML5 Canvas and plain JavaScript, with no libraries. Music and sound effects are generated live with the Web Audio API. Fonts: Press Start 2P, Rajdhani, Silkscreen, VT323, Fredoka, Nunito, Space Mono and Space Grotesk (SIL Open Font License).</p>
+        </section>
+        <div class="credits-links">
+          <a href="https://github.com/nicolas-user15" target="_blank" rel="noopener noreferrer" data-i18n="credits.github">Nicolas on GitHub</a>
+          <a href="https://github.com/nicolas-user15/arcade-game" target="_blank" rel="noopener noreferrer" data-i18n="credits.source">Source code</a>
+        </div>
+        <p class="credits-foot" data-i18n="credits.legal">© 2026 Nicolas de Moura · MIT License. Pac-Man and its characters are trademarks of their respective owners; this is a non-commercial tribute made for study.</p>
       </div>
     </dialog>
 

@@ -129,7 +129,16 @@ test('local font files referenced by CSS exist', () => {
 });
 
 test('the project no longer depends on remote hosts at runtime', () => {
+  // Plain links the player can follow (the Credits) are fine: they load nothing by themselves.
+  // They must open in a new tab without giving it access to this page.
+  const links = /<a\s[^>]*href="https:\/\/github\.com\/[\w./-]+"[^>]*>/g;
+  const html = read('index.html');
+  for (const a of html.match(links) || []) {
+    assert.match(a, /target="_blank"/, a);
+    assert.match(a, /rel="noopener noreferrer"/, a);
+  }
   for (const file of ['index.html', 'style.css', ...srcFiles.map((f) => `src/${f}`)]) {
-    assert.doesNotMatch(read(file), /https?:\/\/(?!www\.w3\.org)/, `${file} references a remote URL`);
+    const text = file === 'index.html' ? html.replace(links, '') : read(file);
+    assert.doesNotMatch(text, /https?:\/\/(?!www\.w3\.org)/, `${file} references a remote URL`);
   }
 });

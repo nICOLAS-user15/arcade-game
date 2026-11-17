@@ -11,9 +11,12 @@ import { THEMES, DEFAULT_THEME, CHARACTERS, DEFAULT_CHARACTER } from './themes.j
 const PREFIX = 'pacman_';
 const LEGACY_HIGH_SCORE_KEY = 'pacman_high_score';
 
-export const DPAD_MODES = ['auto', 'on', 'off'];
-/** Bumped when a saved setting must be reset once (v2: D-pad back to "auto" after the detection fix). */
-export const SETTINGS_VERSION = 2;
+export const DPAD_MODES = ['on', 'off'];
+/**
+ * Bumped when a saved setting must be reset once.
+ * v2: D-pad back to "auto" after the detection fix. v3: "auto" removed, the D-pad is on by default.
+ */
+export const SETTINGS_VERSION = 3;
 
 export function defaultSettings(prefersReducedMotion = false) {
   return {
@@ -25,7 +28,7 @@ export function defaultSettings(prefersReducedMotion = false) {
     musicVolume: 100,
     haptics: true,
     reduceMotion: prefersReducedMotion,
-    dpad: 'auto',
+    dpad: 'on',
     theme: DEFAULT_THEME,
     mode: 'campaign',
     difficulty: 'normal',
@@ -67,12 +70,26 @@ function pickBackend() {
 export const scoreKey = (mode, difficulty) => `${mode}:${difficulty}`;
 
 export const BOARD_SIZE = 10;
-export const NAME_LENGTH = 3;
+export const NAME_LENGTH = 12;
 const clampVolume = (v) => (Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v))) : 100);
 
-/** Arcade initials: up to three letters or digits, upper case. */
+/**
+ * Player name while it is being typed: letters of any alphabet (accents included), digits, single
+ * spaces and . ' - _ only, at most NAME_LENGTH characters. A trailing space is kept so a second
+ * word can still be typed.
+ */
+export function typingName(raw) {
+  const text = String(raw ?? '')
+    .normalize('NFC')
+    .replace(/[^\p{L}\p{M}\p{N} .'_-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trimStart();
+  return Array.from(text).slice(0, NAME_LENGTH).join('');
+}
+
+/** Player name as stored in the high-score table. */
 export function cleanName(raw) {
-  return String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, NAME_LENGTH);
+  return typingName(raw).trim();
 }
 
 function cleanEntry(e) {
@@ -120,12 +137,13 @@ export class Storage {
       }
     }
     if (saved?.version !== SETTINGS_VERSION) {
-      s.dpad = 'auto';
+      // An explicit "off" chosen under v2 is respected; "auto" and older saves become "on"
+      if (!(saved?.version === 2 && s.dpad === 'off')) s.dpad = 'on';
       s.version = SETTINGS_VERSION;
     }
     // Sanitize anything that could have been edited by hand
     if (!isSupported(s.lang)) s.lang = DEFAULT_LANG;
-    if (!DPAD_MODES.includes(s.dpad)) s.dpad = 'auto';
+    if (!DPAD_MODES.includes(s.dpad)) s.dpad = 'on';
     if (!GAME_MODES[s.mode]) s.mode = 'campaign';
     if (!DIFFICULTIES[s.difficulty] && s.difficulty !== 'custom') s.difficulty = 'normal';
     const custom = difficultyFor({ difficulty: 'custom', customLives: s.customLives, customSpeed: s.customSpeed });
@@ -175,7 +193,7 @@ export class Storage {
     return isRecord;
   }
 
-  // ---- top-10 table with initials -------------------------------------
+  // ---- top-10 table with player names ---------------------------------
 
   /** Top scores for one mode and difficulty, best first. */
   board(mode, difficulty) {
@@ -185,7 +203,7 @@ export class Storage {
     return list.sort((a, b) => b.score - a.score).slice(0, BOARD_SIZE);
   }
 
-  /** Personal bests saved before the table existed become its first entries, with "---" initials. */
+  /** Personal bests saved before the table existed become its first entries, with "---" as the name. */
   migrateBoard() {
     try {
       if (this.backend.getItem(PREFIX + 'board') !== null) return;
@@ -223,13 +241,14 @@ export class Storage {
     list.length = Math.min(list.length, BOARD_SIZE);
     const all = this.read('board', {});
     this.write('board', { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [scoreKey(mode, difficulty)]: list });
-    this.write('player', { name: entry.name });
+    this.write('player', { name: cleanName(name) });
     return rank;
   }
 
-  /** Initials used last time, offered again on the next entry. */
+  /** Name used last time, offered again on the next entry ("---" placeholders are not names). */
   lastName() {
-    return cleanName(this.read('player', {})?.name);
+    const name = cleanName(this.read('player', {})?.name);
+    return /^-+$/.test(name) ? '' : name;
   }
 
   // ---- stats and onboarding -------------------------------------------

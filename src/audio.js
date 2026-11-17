@@ -283,7 +283,15 @@ export class SoundController {
     this.tone({ type: 'square', freq: 660, start: 0.07, dur: 0.09, vol: 0.06 });
   }
 
-  /** Small UI tick for menu interaction. */
+  /** Countdown before play: a short blip on 3, 2 and 1, and a brighter rising one on "GO!". */
+  countdown(final = false) {
+    if (final) {
+      this.tone({ type: 'square', freq: 880, freqEnd: 1320, dur: 0.16, vol: 0.07 });
+      return;
+    }
+    this.tone({ type: 'square', freq: 587, dur: 0.07, vol: 0.05 });
+  }
+
   /** Picker feedback: the pitch rises with each step (e.g. difficulty); harsh = a low growl for Hardcore. */
   select(step = 0, harsh = false) {
     if (harsh) {

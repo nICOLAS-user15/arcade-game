@@ -38,7 +38,7 @@ export class Input {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const g = this.game;
       this.app.sound.init();
-      // Typing initials must not trigger shortcuts (M, F, WASD, Space); Tab still reaches the modal trap
+      // Typing a name must not trigger shortcuts (M, F, WASD, Space); Tab still reaches the modal trap
       if (e.target?.matches?.('input, textarea') && e.code !== 'Tab') return;
 
       if (e.code === 'KeyF' && !this.dialogOpen) {

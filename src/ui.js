@@ -238,6 +238,50 @@ export class MenuUI {
     el.classList.add('pop');
   }
 
+  /**
+   * Changes the theme with a short animation: the new look spreads out in a circle from the
+   * button that was pressed (View Transitions API), or fades in where that API is missing.
+   * Reduced motion switches instantly.
+   */
+  switchTheme(id, origin) {
+    const apply = () => {
+      this.app.update({ theme: id });
+      this.pop(origin);
+    };
+    if (id === this.app.settings.theme || this.app.reduceMotion) {
+      apply();
+      return;
+    }
+    const r = origin.getBoundingClientRect();
+    const x = Math.round(r.left + r.width / 2);
+    const y = Math.round(r.top + r.height / 2);
+    if (typeof document.startViewTransition === 'function') {
+      const transition = document.startViewTransition(apply);
+      transition.ready.then(() => {
+        const radius = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+          { duration: 560, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', pseudoElement: '::view-transition-new(root)' }
+        );
+      }).catch(() => {});
+      return;
+    }
+    apply();
+    for (const el of document.querySelectorAll('.menu-card, dialog[open]')) {
+      el.animate?.([{ opacity: 0.35, transform: 'scale(0.985)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'ease-out' });
+    }
+  }
+
+  openCredits() {
+    this.app.sound.init();
+    const cv = this.$('creditsSprite');
+    const ctx = hiDpiContext(cv, 56, 56);
+    ctx.clearRect(0, 0, 56, 56);
+    drawPacman(ctx, 28, 28, 22, { mouth: 0.22, as: this.app.settings.character });
+    const dlg = this.$('creditsDialog');
+    if (!dlg.open) dlg.showModal();
+  }
+
   // ------------------------------------------------------------ dynamic text and state
 
   refresh() {
@@ -422,7 +466,11 @@ export class MenuUI {
       });
     }
     for (const id of ['themePicker', 'themePickerSettings']) {
-      bindRadioGroup($(id), (btn) => pick(btn, { theme: btn.dataset.themeId }, [...btn.parentNode.children].indexOf(btn)));
+      bindRadioGroup($(id), (btn) => {
+        sound.init();
+        sound.select([...btn.parentNode.children].indexOf(btn));
+        this.switchTheme(btn.dataset.themeId, btn);
+      });
     }
     bindRadioGroup($('langPicker'), (btn) => this.setLanguage(btn.dataset.lang));
     bindRadioGroup($('dpadPicker'), (btn) => this.app.update({ dpad: btn.dataset.dpad }));
@@ -471,6 +519,7 @@ export class MenuUI {
     });
 
     $('btnReset').addEventListener('click', () => this.resetProgress());
+    $('btnCredits').addEventListener('click', () => this.openCredits());
 
     // Dialogs: close buttons, backdrop click, tutorial navigation
     document.querySelectorAll('dialog').forEach((dlg) => {

@@ -17,8 +17,10 @@ Only the latest version on `main` (the one published on GitHub Pages) receives f
   would require server-side validation of scores.
 - A Content Security Policy blocks inline and third-party scripts, styles and fonts. It is sent as an
   HTTP header by the local server and as a `<meta>` tag for GitHub Pages; a test keeps both identical.
-- Player input (high-score initials) is filtered to `A-Z` and `0-9`, and every text reaches the page
-  through `textContent`, never as HTML.
+- Player input (the high-score name) is filtered to letters, digits, single spaces and `. ' - _`
+  (12 characters at most), and every text reaches the page through `textContent`, never as HTML.
+- The only external links (in the Credits) open in a new tab with `rel="noopener noreferrer"`; a test
+  fails if any other remote URL appears in the page, the styles or the scripts.
 - The local dev server (`server.js`) only serves an allowlist of game files, rejects path traversal,
   accepts GET/HEAD only and binds to `localhost` unless `--lan` is used.
 - The service worker only caches the game's own files (an explicit list), never arbitrary URLs.

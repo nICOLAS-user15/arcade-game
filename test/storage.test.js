@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Storage, MemoryBackend, defaultSettings, scoreKey } from '../src/storage.js';
+import { Storage, MemoryBackend, defaultSettings, scoreKey, cleanName, typingName } from '../src/storage.js';
 
 const fresh = (opts) => new Storage(new MemoryBackend(), opts);
 
@@ -30,7 +30,7 @@ test('hand-edited or corrupt settings are sanitized', () => {
   assert.equal(s.lang, 'en');
   assert.equal(s.difficulty, 'normal');
   assert.equal(s.mode, 'campaign');
-  assert.equal(s.dpad, 'auto');
+  assert.equal(s.dpad, 'on');
   assert.equal(s.theme, 'classic', 'unknown theme falls back to the default');
   assert.equal(s.sfx, true, 'wrong type falls back to the default');
   assert.equal(s.haptics, false, 'valid values survive');
@@ -40,16 +40,22 @@ test('hand-edited or corrupt settings are sanitized', () => {
   assert.deepEqual(new Storage(backend).loadSettings(), defaultSettings());
 });
 
-test('settings saved before v2 get the D-pad back to "auto" once', () => {
+test('the D-pad is on by default; "auto" and pre-v2 saves become "on", a v2 "off" is kept', () => {
+  assert.equal(defaultSettings().dpad, 'on');
   const backend = new MemoryBackend();
   backend.setItem('pacman_settings', JSON.stringify({ dpad: 'off', theme: 'modern', lang: 'pt' }));
   const st = new Storage(backend);
   const s = st.loadSettings();
-  assert.equal(s.dpad, 'auto');
+  assert.equal(s.dpad, 'on', 'saves from before v2 are reset once');
   assert.equal(s.theme, 'classic', 'the removed Modern theme falls back to the default');
   assert.equal(s.lang, 'pt', 'other choices are kept');
   st.saveSettings({ ...s, dpad: 'off' });
   assert.equal(st.loadSettings().dpad, 'off', 'a choice made after the reset sticks');
+
+  backend.setItem('pacman_settings', JSON.stringify({ version: 2, dpad: 'auto' }));
+  assert.equal(new Storage(backend).loadSettings().dpad, 'on', '"auto" no longer exists');
+  backend.setItem('pacman_settings', JSON.stringify({ version: 2, dpad: 'off' }));
+  assert.equal(new Storage(backend).loadSettings().dpad, 'off', 'an explicit "off" is respected');
 });
 
 test('personal bests are tracked per mode and difficulty', () => {
@@ -82,15 +88,30 @@ test('the old single high score is migrated once', () => {
   assert.equal(backend.getItem('pacman_high_score'), null, 'legacy key removed');
 });
 
-test('top-10 table: sorted, capped at ten, ties go below, initials sanitized', () => {
+test('player names: any alphabet, single spaces, a few symbols, 12 characters at most', () => {
+  assert.equal(cleanName('  João   da Silva  '), 'João da Silva'.slice(0, 12));
+  assert.equal(cleanName('Ana-Clara'), 'Ana-Clara');
+  assert.equal(cleanName("D'Ávila_99"), "D'Ávila_99");
+  assert.equal(cleanName('<img src=x onerror=alert(1)>'), 'img srcx one', 'markup characters are dropped');
+  assert.equal(cleanName('😀Zoë😀'), 'Zoë', 'emoji are dropped');
+  assert.equal(cleanName('ABCDEFGHIJKLMNOP'), 'ABCDEFGHIJKL');
+  assert.equal(cleanName('Ána'), 'Ána', 'combining accents are normalized');
+  assert.equal(cleanName(null), '');
+  assert.equal(typingName('Maria '), 'Maria ', 'a trailing space survives while typing');
+  assert.equal(typingName('  Maria'), 'Maria');
+});
+
+test('top-10 table: sorted, capped at ten, ties go below, names sanitized', () => {
   const st = fresh();
   assert.deepEqual(st.board('campaign', 'normal'), []);
   assert.equal(st.qualifies('campaign', 'normal', 0), false, 'a zero score never qualifies');
   assert.equal(st.addToBoard('campaign', 'normal', { name: 'abc', score: 500, level: 2 }), 0);
-  assert.equal(st.addToBoard('campaign', 'normal', { name: 'x_y!z9', score: 900, level: 3 }), 0);
+  assert.equal(st.addToBoard('campaign', 'normal', { name: 'x<y>!z9', score: 900, level: 3 }), 0);
   assert.equal(st.addToBoard('campaign', 'normal', { name: '', score: 500, level: 1 }), 2, 'a tie ranks below the older entry');
-  assert.deepEqual(st.board('campaign', 'normal').map((e) => [e.name, e.score]), [['XYZ', 900], ['ABC', 500], ['---', 500]]);
-  assert.equal(st.lastName(), '', 'blank initials are not remembered as dashes');
+  assert.deepEqual(st.board('campaign', 'normal').map((e) => [e.name, e.score]), [['xyz9', 900], ['abc', 500], ['---', 500]]);
+  assert.equal(st.lastName(), '', 'a blank name is not remembered as dashes');
+  st.addToBoard('campaign', 'normal', { name: ' Nicolas ', score: 950, level: 3 });
+  assert.equal(st.lastName(), 'Nicolas', 'the last name is offered again');
   assert.deepEqual(st.board('endless', 'normal'), [], 'every mode and difficulty has its own table');
 
   for (let i = 1; i <= 12; i++) st.addToBoard('campaign', 'hard', { name: 'P' + i, score: i * 100, level: 1 });

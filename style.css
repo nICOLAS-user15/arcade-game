@@ -41,7 +41,8 @@
   --hud-h: 58px;
   --bar-h: 46px;
   --ctrl-h: 30px; /* key hints strip; becomes the D-pad height on touch */
-  --dpad-h: 172px;
+  --dpad-h: 180px;
+  --dpad-gap: clamp(5px, 1.6vw, 8px);
   --side-w: clamp(120px, 24vw, 230px);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -442,8 +443,10 @@ kbd {
 }
 html[data-dpad='on'] .dpad { display: block; }
 html[data-dpad='on'] .key-hints { display: none; }
+/* The four arrows sit slightly apart (--dpad-gap), so a thumb on one never brushes its neighbour */
 .dpad-btn {
-  position: absolute; width: 33.4%; height: 33.4%;
+  --size: calc((100% - 2 * var(--dpad-gap)) / 3);
+  position: absolute; width: var(--size); height: var(--size);
   display: grid; place-items: center; color: #dbe4ff;
   background: rgba(36, 48, 96, 0.85); border: 1px solid rgba(190, 205, 255, 0.28); border-radius: 14px;
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
@@ -452,10 +455,10 @@ html[data-dpad='on'] .key-hints { display: none; }
 }
 .dpad-btn svg { width: 46%; height: 46%; fill: currentColor; stroke: none; }
 .dpad-btn:active { background: var(--blue); color: var(--accent-text); transform: scale(0.94); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
-.dpad-btn.up { top: 0; left: 33.3%; }
-.dpad-btn.left { top: 33.3%; left: 0; }
-.dpad-btn.right { top: 33.3%; left: 66.6%; }
-.dpad-btn.down { top: 66.6%; left: 33.3%; }
+.dpad-btn.up { top: 0; left: calc(var(--size) + var(--dpad-gap)); }
+.dpad-btn.left { top: calc(var(--size) + var(--dpad-gap)); left: 0; }
+.dpad-btn.right { top: calc(var(--size) + var(--dpad-gap)); right: 0; }
+.dpad-btn.down { bottom: 0; left: calc(var(--size) + var(--dpad-gap)); }
 
 .key-hints {
   display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 4px 16px;
@@ -610,7 +613,7 @@ input:disabled + .switch { opacity: 0.35; }
 .scores-table th { padding: 6px 8px; font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(8px * var(--display-scale)); letter-spacing: 1px; color: var(--muted); text-align: left; }
 .scores-table td { padding: 7px 8px; border-top: 1px solid var(--line); }
 .scores-table td:nth-child(1) { width: 2.4em; font-weight: 700; color: var(--muted); }
-.scores-table td:nth-child(2) { font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(11px * var(--display-scale)); letter-spacing: 2px; }
+.scores-table td:nth-child(2) { font-weight: 700; font-size: 18px; letter-spacing: 0.3px; overflow-wrap: anywhere; line-height: 1.15; }
 .scores-table td:nth-child(3) { font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(11px * var(--display-scale)); color: var(--yellow); }
 .scores-table td:nth-child(4) { color: var(--muted); }
 .scores-table tbody tr:nth-child(1) td:nth-child(1) { color: #ffd54a; }
@@ -623,13 +626,34 @@ input:disabled + .switch { opacity: 0.35; }
 .initials-field { display: block; margin-bottom: 14px; }
 .initials-field .field-label { display: block; margin-bottom: 8px; }
 #initialsInput {
-  width: 6em; padding: 8px 0 8px 0.35em;
-  font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(26px * var(--display-scale));
-  letter-spacing: 0.35em; text-align: center; text-transform: uppercase;
+  width: min(100%, 14em); padding: 10px 12px;
+  font-weight: 700; font-size: 24px;
+  letter-spacing: 0.5px; text-align: center;
   color: var(--yellow); caret-color: var(--yellow); background: var(--panel-2);
   border: 2px solid var(--line); border-radius: 12px;
 }
 #initialsInput:focus { outline: 0; border-color: var(--yellow); box-shadow: 0 0 18px color-mix(in srgb, var(--yellow) 40%, transparent); }
+/* Credits */
+.credits-row .btn-ghost { flex: none; width: auto; min-width: 96px; min-height: 44px; padding: 0 16px; }
+.credits { flex: 1; overflow-y: auto; padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 16px; user-select: text; }
+.credits-hero { display: flex; align-items: center; gap: 14px; }
+.credits-hero canvas { flex: none; width: 56px; height: 56px; }
+.credits-by { font-size: 15px; color: var(--muted); }
+.credits-name { font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(clamp(12px, 3.6vw, 15px) * var(--display-scale)); line-height: 1.4; color: var(--yellow); }
+.credits-block h3 { margin-bottom: 6px; font-family: var(--font-pixel); font-weight: var(--display-weight); font-size: calc(10px * var(--display-scale)); letter-spacing: 1px; line-height: 1.5; color: var(--cyan); }
+.credits-block p { font-size: 17px; line-height: 1.35; }
+.credits-block p + p { margin-top: 8px; }
+.credits-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.credits-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; font-weight: 700; color: var(--text); text-decoration: none; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+.credits-links a:hover, .credits-links a:focus-visible { border-color: var(--yellow); color: var(--yellow); }
+.credits-foot { font-size: 14px; color: var(--muted); line-height: 1.3; }
+html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-radius: 0; }
+
+/* Theme switch: the new theme spreads out in a circle from the button that was pressed
+   (View Transitions API, see MenuUI.switchTheme). Browsers without it get a short fade in JS. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { z-index: 1; }
+
 .install-steps { padding: 18px 20px 22px 44px; list-style: decimal; display: flex; flex-direction: column; gap: 12px; font-size: 18px; }
 .install-btn { margin-top: 4px; }
 
@@ -737,7 +761,7 @@ input:disabled + .switch { opacity: 0.35; }
   .fruit-chip { display: none; }
   .tool-buttons { justify-content: space-between; }
   .dpad, .key-hints { align-self: center; justify-self: center; }
-  .dpad { --dpad-h: min(172px, calc(var(--vh) - 2 * var(--pad) - var(--safe-t) - var(--safe-b))); width: var(--dpad-h); height: var(--dpad-h); }
+  .dpad { --dpad-h: min(180px, calc(var(--vh) - 2 * var(--pad) - var(--safe-t) - var(--safe-b))); width: var(--dpad-h); height: var(--dpad-h); }
   .key-hints { flex-direction: column; height: auto; }
   .board-wrap { grid-area: board; align-self: center; }
 }
