@@ -1,7 +1,7 @@
 {
   "name": "pacman-arcade",
   "version": "2.0.0",
-  "description": "A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript: 5 stages, 3 difficulties, endless mode, English and Portuguese.",
+  "description": "A Pac-Man tribute built with HTML5 Canvas and vanilla JavaScript: 5 stages, 4 themes, 4 difficulties plus a custom one, endless mode, English and Portuguese.",
   "type": "module",
   "main": "index.html",
   "scripts": {
