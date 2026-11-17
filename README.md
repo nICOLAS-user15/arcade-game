@@ -77,6 +77,7 @@ scripts/              build and icon generation
 - **Volume:** music and effects have separate on/off switches and 0-100% sliders in Settings (squared curve, so the low end is usable).
 - **Audio:** effects and music are synthesized with the Web Audio API, so there are no audio files. Songs are written as data in `src/songs.js` (notes, chord-relative bass and arpeggios, drum patterns) and played by a look-ahead scheduler in `src/chiptune.js`. Note: some antivirus web shields (e.g. Avast) block any script named `music*.js`, hence the file name.
 - **Server hardening:** allowlisted files only, safe path decoding and traversal checks, GET/HEAD only, strict CSP and security headers, localhost bind by default.
+- **Security:** the same Content Security Policy also ships as a `<meta>` tag, because GitHub Pages cannot send headers (a test keeps both copies identical). The service worker caches only the game's own files. The `__pacman` debug handle exists only on the local dev server. GitHub Actions are pinned to commit SHAs with least-privilege permissions and kept current by Dependabot. See [SECURITY.md](SECURITY.md) for how to report a problem.
 
 ## Deploy
 
