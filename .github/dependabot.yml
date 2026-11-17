@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned GitHub Actions up to date (and flags known vulnerable versions).
+# The game itself has no npm dependencies, so only the workflows are watched.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
