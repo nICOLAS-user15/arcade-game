@@ -7,7 +7,7 @@
 
 import {
   TILE_SIZE, COLS, ROWS, LOGICAL_W, LOGICAL_H, STEP, MAX_STEPS_PER_FRAME, TILE, SPAWN, SCORE,
-  DIFFICULTIES, GAME_MODES, GHOST_DEFS, PHASES, PHASE_COUNT, phaseForLevel, levelParams,
+  difficultyFor, GAME_MODES, GHOST_DEFS, PHASES, PHASE_COUNT, phaseForLevel, levelParams,
   countPellets, cloneMap, isPacmanWalkable, portalDestination
 } from './config.js';
 import { Pacman, Ghost, tileOf } from './entities.js';
@@ -24,6 +24,7 @@ const MODALS = ['pauseModal', 'briefingModal', 'standardModal', 'initialsModal']
 const TAU = Math.PI * 2;
 const FRUIT_SECONDS = 11;
 const HIT_STOP = 0.12;
+const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
 /** Seconds between the chirps of ghost eyes racing home. */
 const RETREAT_EVERY = 0.16;
 /** The stage music speeds up by up to this much while the last quarter of the pellets is eaten. */
@@ -117,7 +118,7 @@ export class Game {
   // ================================================================ session
 
   get diff() {
-    return DIFFICULTIES[this.app.settings.difficulty] || DIFFICULTIES.normal;
+    return difficultyFor(this.app.settings);
   }
 
   get phase() {
@@ -144,11 +145,14 @@ export class Game {
     this.cutscene = null;
     this.updateScore();
     this.updateLives();
-    this.loadLevel(1);
+    // Endless can start from any stage the player has already reached
+    const start = this.endless ? Math.min(s.startStage || 1, this.app.storage.maxStage()) : 1;
+    this.loadLevel(start);
   }
 
   loadLevel(n) {
     this.level = n;
+    this.app.storage.reachStage(n);
     this.params = levelParams(n, this.difficulty);
     const phase = this.phase;
 
@@ -228,7 +232,7 @@ export class Game {
 
   /** Stores the score as a personal best if it beats the previous one. Returns true on a new record. */
   commitScore() {
-    if (!this.mode || !this.score) return false;
+    if (!this.mode || !this.score || this.difficulty.custom) return false; // custom games are not ranked
     return this.app.storage.submitScore(this.mode, this.difficulty.id, this.score, this.level);
   }
 
@@ -489,7 +493,7 @@ export class Game {
   }
 
   burst(x, y, color, count = 12) {
-    if (this.app.reduceMotion) count = Math.ceil(count / 3);
+    if (this.app.reduceMotion) return; // no particle bursts
     for (let i = 0; i < count; i++) {
       const a = (TAU / count) * i;
       const speed = 1.5 + this.random() * 2;
@@ -501,7 +505,8 @@ export class Game {
 
   stageClear() {
     this.state = 'STAGE_CLEAR';
-    this.stageTimer = 1.5; // long enough for the jingle
+    // Campaign: long enough for the jingle. Endless: just a quick flash, the run keeps going.
+    this.stageTimer = this.endless ? ENDLESS_CLEAR_FLASH : 1.5;
     this.app.sound.playJingle('stageClear');
     this.app.haptics.play(HAPTICS.stageClear);
     this.commitScore();
@@ -512,10 +517,43 @@ export class Game {
       this.victory();
       return;
     }
+    if (this.endless) {
+      this.continueEndless();
+      return;
+    }
     this.startCutscene();
   }
 
+  /**
+   * Endless mode never stops between levels: no cutscene, no briefing, no READY.
+   * The next maze loads and Pac-Man keeps the direction the player was steering.
+   */
+  continueEndless() {
+    const { dir, nextDir } = this.pacman;
+    const next = this.level + 1;
+    this.loadLevel(next);
+    this.pacman.setDirection(nextDir || dir);
+    this.hideOverlay();
+    this.cutscene = null;
+    this.state = 'PLAYING';
+    this.acc = 0;
+    this.warnSlot = 0;
+    this.eyesTimer = 0;
+    this.app.sound.duckMusic(false);
+    this.app.sound.setMusicTempo(1);
+    const label = t('briefing.endless', { n: next });
+    this.app.toast(label);
+    this.app.announce(`${label}. ${t(`phase.${this.phase.id}.name`)}`);
+    if (this.phase.portals.length) this.hint('portal', 'hint.portal');
+  }
+
   startCutscene() {
+    // Reduce motion: skip the animated intermission and go straight to the next-stage card
+    if (this.app.reduceMotion) {
+      this.cutscene = null;
+      this.showBriefing();
+      return;
+    }
     const variant = ((this.level - 1) % 4) + 1;
     this.cutscene = new Cutscene(variant, this.level, {
       reduceMotion: this.app.reduceMotion,
@@ -584,7 +622,8 @@ export class Game {
       primary: [t('result.endless'), () => {
         this.endless = true;
         this.cutscene = null;
-        this.showBriefing();
+        this.loadLevel(this.level + 1);
+        this.beginLevel(true);
       }],
       secondary: [t('result.menu'), () => this.showMenu()]
     }));
@@ -615,7 +654,7 @@ export class Game {
     const { storage } = this.app;
     const { mode, score, level } = this;
     const diff = this.difficulty.id;
-    const place = storage.rankFor(mode, diff, score);
+    const place = this.difficulty.custom ? -1 : storage.rankFor(mode, diff, score);
     if (place < 0) {
       done(-1);
       return;

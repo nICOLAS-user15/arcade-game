@@ -284,6 +284,16 @@ export class SoundController {
   }
 
   /** Small UI tick for menu interaction. */
+  /** Picker feedback: the pitch rises with each step (e.g. difficulty); harsh = a low growl for Hardcore. */
+  select(step = 0, harsh = false) {
+    if (harsh) {
+      this.tone({ type: 'sawtooth', freq: 150, freqEnd: 70, dur: 0.18, vol: 0.1 });
+      return;
+    }
+    const f = 440 * 2 ** ((step * 4) / 12);
+    this.tone({ type: 'square', freq: f, freqEnd: f * 1.25, dur: 0.07, vol: 0.06 });
+  }
+
   click() {
     this.tone({ type: 'square', freq: 740, freqEnd: 520, dur: 0.05, vol: 0.06 });
   }
@@ -303,15 +313,18 @@ export class SoundController {
   }
 }
 
-/** Vibration patterns, in milliseconds. */
+/**
+ * Vibration patterns, in milliseconds. Many Android motors ignore pulses shorter
+ * than ~15 ms, so even the lightest tap stays above that.
+ */
 export const HAPTICS = Object.freeze({
-  tap: 8,
-  power: 20,
-  ghost: [25, 20, 35],
-  fruit: 15,
-  death: [90, 50, 160],
-  stageClear: [30, 40, 30, 40, 70],
-  extraLife: [20, 30, 20, 30, 60]
+  tap: 18,
+  power: 40,
+  ghost: [40, 30, 60],
+  fruit: 30,
+  death: [120, 60, 220],
+  stageClear: [50, 50, 50, 50, 100],
+  extraLife: [40, 40, 40, 40, 90]
 });
 
 export class Haptics {
