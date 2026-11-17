@@ -6,12 +6,14 @@
  * unit-testable without a browser:
  *   game.map, game.params, game.pacman, game.isTunnelTile(col,row),
  *   game.onPellet(col,row), game.onPortal(entity) -> true when the entity was moved
+ * Optional (absent in tests means "always chase, no Elroy"):
+ *   game.ghosts (Inky's aim uses Blinky), game.ghostMode ('scatter' | 'chase'), game.elroy (boolean)
  *
  * Portals fire when an entity steps onto the tile, never while it stands on it, so a
  * player who stops on the destination is not bounced back and forth.
  */
 
-import { TILE_SIZE, COLS, ROWS, STEP, TILE, DIRS, SPAWN, isPacmanWalkable } from './config.js';
+import { TILE_SIZE, COLS, ROWS, STEP, TILE, DIRS, SPAWN, ELROY_SPEED, isPacmanWalkable } from './config.js';
 import { drawPacman, drawPacmanDying, drawGhost } from './sprites.js';
 
 const HALF = TILE_SIZE / 2;
@@ -239,9 +241,27 @@ export class Ghost {
     this.prevY = this.y;
   }
 
+  /** Still inside the ghost house, or on its way out. */
+  get inHouse() {
+    return this.state === 'IN_HOUSE' || this.state === 'EXITING';
+  }
+
+  /**
+   * Blue and harmless. A ghost still in the house when a power pellet is eaten turns blue too and
+   * leaves the house frightened, like in the arcade: it never ambushes a powered-up Pac-Man.
+   */
+  get scared() {
+    return this.state === 'FRIGHTENED' || (this.inHouse && this.frightenedTimer > 0);
+  }
+
   /** True when this ghost can hurt Pac-Man. */
   get harmful() {
-    return this.state === 'CHASE' || this.state === 'EXITING';
+    return this.state === 'CHASE' || (this.state === 'EXITING' && !this.scared);
+  }
+
+  /** Blinky's endgame boost: he matches Pac-Man's speed and stops scattering. */
+  get elroy() {
+    return this.name === 'Blinky' && !!this.game.elroy;
   }
 
   step() {
@@ -249,6 +269,7 @@ export class Ghost {
     this.prevY = this.y;
     this.timer += STEP;
     this.wave += 0.16;
+    if (this.inHouse && this.frightenedTimer > 0) this.frightenedTimer = Math.max(0, this.frightenedTimer - STEP);
 
     if (this.state === 'IN_HOUSE') {
       if (this.timer < this.releaseTime) {
@@ -271,6 +292,7 @@ export class Ghost {
     wrapAround(this);
 
     let speed = this.speed;
+    if (this.state === 'CHASE' && this.elroy) speed = Math.max(speed, this.game.params.pacmanSpeed * ELROY_SPEED);
     if (this.state === 'FRIGHTENED') speed *= FRIGHTENED_SPEED;
     else if (this.state === 'EATEN') speed *= EATEN_SPEED;
     if (this.game.isTunnelTile(tileOf(this.x), tileOf(this.y))) speed *= TUNNEL_SPEED;
@@ -330,7 +352,7 @@ export class Ghost {
     this.y -= HOUSE_EXIT_SPEED;
     if (this.y <= exitY) {
       this.y = exitY;
-      this.state = 'CHASE';
+      this.state = this.frightenedTimer > 0 ? 'FRIGHTENED' : 'CHASE';
       this.dir = this.game.random() < 0.5 ? DIRS.LEFT : DIRS.RIGHT;
       this.lastTurnCol = SPAWN.ghostExit.col;
       this.lastTurnRow = SPAWN.ghostExit.row;
@@ -375,14 +397,23 @@ export class Ghost {
 
   targetTile(col, row) {
     if (this.state === 'EATEN') return { x: SPAWN.ghostHouse.col, y: SPAWN.ghostHouse.row };
+    // Scatter wave: back off to the home corner (Blinky in Elroy mode keeps chasing)
+    if (this.game.ghostMode === 'scatter' && !this.elroy) return this.def.corner;
     const pac = this.game.pacman;
     const pc = tileOf(pac.x);
     const pr = tileOf(pac.y);
     switch (this.name) {
       case 'Pinky':
         return { x: pc + pac.dir.x * 4, y: pr + pac.dir.y * 4 };
-      case 'Inky':
-        return { x: pc + pac.dir.x * 2, y: pr + pac.dir.y * 2 };
+      case 'Inky': {
+        // Arcade rule: take the tile 2 ahead of Pac-Man and double the vector from Blinky to it.
+        // With Blinky behind Pac-Man this closes a pincer from the other side.
+        const ax = pc + pac.dir.x * 2;
+        const ay = pr + pac.dir.y * 2;
+        const blinky = this.game.ghosts?.find((g) => g.name === 'Blinky');
+        if (!blinky) return { x: ax, y: ay };
+        return { x: 2 * ax - tileOf(blinky.x), y: 2 * ay - tileOf(blinky.y) };
+      }
       case 'Clyde':
         return Math.hypot(col - pc, row - pr) > 7 ? { x: pc, y: pr } : this.def.corner;
       default: // Blinky
@@ -391,21 +422,32 @@ export class Ghost {
   }
 
   frighten() {
-    if (this.state === 'EATEN' || this.state === 'IN_HOUSE' || this.state === 'EXITING') return;
-    this.state = 'FRIGHTENED';
+    if (this.state === 'EATEN') return;
     this.frightenedTimer = this.game.params.frightenedDuration;
+    if (this.inHouse) return; // turns blue but keeps its way out of the house; leaves frightened
+    this.state = 'FRIGHTENED';
+    this.reverse();
+  }
+
+  /** Turn around on the spot (power pellet, or the scatter/chase wave changing). */
+  reverse() {
     this.dir = opposite(this.dir);
     this.lastTurnCol = -1;
     this.lastTurnRow = -1;
   }
 
+  /** Called by the game when the scatter/chase wave changes: active ghosts reverse, a cue players learn to read. */
+  onWaveChange() {
+    if (this.state === 'CHASE') this.reverse();
+  }
+
   /** Scared ghosts flash white during the last two seconds as a warning. */
   get flashing() {
-    return this.state === 'FRIGHTENED' && this.frightenedTimer < 2 && Math.floor(this.frightenedTimer * 5) % 2 === 0;
+    return this.scared && this.frightenedTimer < 2 && Math.floor(this.frightenedTimer * 5) % 2 === 0;
   }
 
   draw(ctx, alpha = 1) {
-    const state = this.state === 'EATEN' ? 'eaten' : this.state === 'FRIGHTENED' ? 'scared' : 'normal';
+    const state = this.state === 'EATEN' ? 'eaten' : this.scared ? 'scared' : 'normal';
     drawGhost(ctx, interpolate(this.prevX, this.x, alpha), interpolate(this.prevY, this.y, alpha), this.radius, {
       color: this.color,
       state,

@@ -238,17 +238,37 @@ test('power pellet: ghosts become frightened, then recover on schedule', () => {
   assert.equal(blinky.harmful, true);
 });
 
-test('frightening ignores ghosts that are in the house, leaving it, or already eaten', () => {
+test('ghosts in the house turn blue too, stay harmless on the way out and leave frightened', () => {
   const g = makeGame(0);
   const pinky = g.ghosts[1];
   pinky.frighten();
-  assert.equal(pinky.state, 'IN_HOUSE');
-  pinky.state = 'EXITING';
-  pinky.frighten();
-  assert.equal(pinky.state, 'EXITING');
+  assert.equal(pinky.state, 'IN_HOUSE', 'keeps its way out of the house');
+  assert.equal(pinky.scared, true);
+  // Leaving the house while still blue: never harmful, and out in the maze it is FRIGHTENED
+  let sawExiting = false;
+  for (let i = 0; i < 60 * 3 && pinky.state !== 'FRIGHTENED'; i++) {
+    pinky.step();
+    if (pinky.state === 'EXITING') {
+      sawExiting = true;
+      assert.equal(pinky.harmful, false, 'a blue ghost leaving the house cannot hurt Pac-Man');
+    }
+  }
+  assert.ok(sawExiting);
+  assert.equal(pinky.state, 'FRIGHTENED');
+  // Eaten ghosts are not frightened again
   pinky.state = 'EATEN';
   pinky.frighten();
   assert.equal(pinky.state, 'EATEN');
+});
+
+test('a ghost whose power-up ends while still in the house comes out normal', () => {
+  const g = makeGame(0);
+  const clyde = g.ghosts[3]; // released last
+  clyde.frighten();
+  for (let i = 0; i < 60 * 30 && clyde.state !== 'CHASE'; i++) clyde.step();
+  assert.equal(clyde.state, 'CHASE');
+  assert.equal(clyde.scared, false);
+  assert.equal(clyde.harmful, true);
 });
 
 test('frightened ghosts reverse direction', () => {
@@ -280,6 +300,63 @@ test('Harmful states: only chasing or house-exiting ghosts can hurt Pac-Man', ()
     ghost.state = state;
     assert.equal(ghost.harmful, harmful, state);
   }
+  ghost.state = 'EXITING';
+  ghost.frightenedTimer = 3;
+  assert.equal(ghost.harmful, false, 'a blue ghost leaving the house is harmless');
+});
+
+test('scatter waves send each ghost to its own corner; chase waves target Pac-Man', () => {
+  const g = makeGame(0);
+  const pac = g.pacman;
+  pac.x = 5 * TILE_SIZE + TILE_SIZE / 2;
+  pac.y = 4 * TILE_SIZE + TILE_SIZE / 2;
+  g.ghostMode = 'scatter';
+  g.ghosts.forEach((gh, i) => assert.deepEqual(gh.targetTile(1, 1), GHOST_DEFS[i].corner, `${gh.name} scatters home`));
+  g.ghostMode = 'chase';
+  assert.deepEqual(g.ghosts[0].targetTile(1, 1), { x: 5, y: 4 });
+});
+
+test('a wave change makes active ghosts reverse, but not frightened, eaten or housed ones', () => {
+  const g = makeGame(0);
+  const [blinky, pinky] = g.ghosts;
+  const before = blinky.dir;
+  blinky.onWaveChange();
+  assert.equal(blinky.dir, opposite(before), 'chasing ghost turns around');
+  const housed = pinky.dir;
+  pinky.onWaveChange();
+  assert.equal(pinky.dir, housed, 'ghost in the house is not affected');
+  blinky.frighten();
+  const scaredDir = blinky.dir;
+  blinky.onWaveChange();
+  assert.equal(blinky.dir, scaredDir, 'frightened ghost is not affected');
+});
+
+test('Cruise Elroy: Blinky matches Pac-Man near the end, never outruns him, and ignores scatter', () => {
+  const g = makeGame(4); // last stage
+  const blinky = g.ghosts[0];
+  const pinky = g.ghosts[1];
+  const pacSpeed = g.params.pacmanSpeed;
+  const runStep = (ghost) => {
+    ghost.state = 'CHASE';
+    ghost.dir = DIRS.LEFT;
+    ghost.y = 1 * TILE_SIZE + TILE_SIZE / 2; // open corridor at the top (columns 2-4 of row 1)
+    ghost.x = 3 * TILE_SIZE + TILE_SIZE / 2;
+    ghost.lastTurnCol = 3;
+    ghost.lastTurnRow = 1;
+    const x0 = ghost.x;
+    ghost.step();
+    return x0 - ghost.x;
+  };
+  const normal = runStep(blinky);
+  assert.ok(normal < pacSpeed, 'normally slower than Pac-Man');
+  g.elroy = true;
+  const boosted = runStep(blinky);
+  assert.ok(Math.abs(boosted - pacSpeed) < 1e-9, `Elroy speed ${boosted} equals Pac-Man ${pacSpeed}`);
+  assert.ok(runStep(pinky) < pacSpeed, 'only Blinky gets the boost');
+  g.ghostMode = 'scatter';
+  g.pacman.x = 5 * TILE_SIZE + TILE_SIZE / 2;
+  g.pacman.y = 4 * TILE_SIZE + TILE_SIZE / 2;
+  assert.deepEqual(blinky.targetTile(1, 1), { x: 5, y: 4 }, 'Elroy keeps chasing during scatter');
 });
 
 test('each ghost targets according to its personality', () => {
@@ -291,7 +368,13 @@ test('each ghost targets according to its personality', () => {
   const [blinky, pinky, inky, clyde] = g.ghosts;
   assert.deepEqual(blinky.targetTile(1, 1), { x: 5, y: 4 });
   assert.deepEqual(pinky.targetTile(1, 1), { x: 9, y: 4 }, 'Pinky aims 4 tiles ahead');
-  assert.deepEqual(inky.targetTile(1, 1), { x: 7, y: 4 }, 'Inky aims 2 tiles ahead');
+  // Inky: the tile 2 ahead of Pac-Man (7,4), plus the vector from Blinky to it
+  const bx = tileOf(blinky.x);
+  const by = tileOf(blinky.y);
+  assert.deepEqual(inky.targetTile(1, 1), { x: 2 * 7 - bx, y: 2 * 4 - by }, 'Inky mirrors Blinky around the tile 2 ahead');
+  blinky.x = 3 * TILE_SIZE + TILE_SIZE / 2; // Blinky right behind Pac-Man: Inky closes in from the front
+  blinky.y = 4 * TILE_SIZE + TILE_SIZE / 2;
+  assert.deepEqual(inky.targetTile(1, 1), { x: 11, y: 4 }, 'pincer: Inky aims beyond Pac-Man, opposite Blinky');
   assert.deepEqual(clyde.targetTile(15, 15), { x: 5, y: 4 }, 'Clyde chases when far');
   assert.deepEqual(clyde.targetTile(6, 4), GHOST_DEFS[3].corner, 'Clyde flees to his corner when close');
   blinky.state = 'EATEN';

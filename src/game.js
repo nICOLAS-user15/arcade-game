@@ -8,7 +8,8 @@
 import {
   TILE_SIZE, COLS, ROWS, LOGICAL_W, LOGICAL_H, STEP, MAX_STEPS_PER_FRAME, TILE, SPAWN, SCORE,
   difficultyFor, GAME_MODES, GHOST_DEFS, PHASES, PHASE_COUNT, phaseForLevel, levelParams,
-  countPellets, cloneMap, isPacmanWalkable, portalDestination
+  countPellets, cloneMap, isPacmanWalkable, portalDestination,
+  ghostModeAt, ELROY_PELLETS, ENDLESS_LIFE_EVERY, MAX_LIVES
 } from './config.js';
 import { Pacman, Ghost, tileOf } from './entities.js';
 import { Cutscene } from './cutscene.js';
@@ -24,6 +25,13 @@ const MODALS = ['pauseModal', 'briefingModal', 'standardModal', 'initialsModal']
 const TAU = Math.PI * 2;
 const FRUIT_SECONDS = 11;
 const HIT_STOP = 0.12;
+/**
+ * Collision distances, in tiles. Deliberately asymmetric: touching a dangerous ghost needs real
+ * overlap (a near miss never kills), while eating a blue one is generous. Both stay far larger
+ * than what Pac-Man and a ghost can travel in one step, so they can never pass through each other.
+ */
+const HIT_DISTANCE = 0.6;
+const EAT_DISTANCE = 0.75;
 const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
 /** Seconds between the chirps of ghost eyes racing home. */
 const RETREAT_EVERY = 0.16;
@@ -140,7 +148,8 @@ export class Game {
     this.endless = GAME_MODES[this.mode].endless;
     this.score = 0;
     this.lives = this.difficulty.lives;
-    this.extraLifeGiven = false;
+    this.extraLives = 0;
+    this.nextLifeAt = SCORE.EXTRA_LIFE_AT;
     this.storedBest = this.app.storage.best(this.mode, this.difficulty.id).score;
     this.cutscene = null;
     this.updateScore();
@@ -173,6 +182,7 @@ export class Game {
 
     this.pacman = new Pacman(this);
     this.ghosts = GHOST_DEFS.map((def, i) => new Ghost(this, def, this.params.ghostReleases[i]));
+    this.resetWaves();
     this.applyStageLook();
     this.updateStage();
     this.updatePowerBar();
@@ -303,15 +313,17 @@ export class Game {
     if (this.state !== 'PLAYING') return; // the stage was cleared on this step
 
     this.checkFruit();
+    this.updateWaves();
     for (const ghost of this.ghosts) ghost.step(); // all ghosts move before collisions, so eating one never freezes the rest
     for (const ghost of this.ghosts) {
       if (ghost.state === 'EATEN' || ghost.state === 'IN_HOUSE') continue;
-      if (Math.hypot(this.pacman.x - ghost.x, this.pacman.y - ghost.y) >= TILE_SIZE * 0.75) continue;
+      const dist = Math.hypot(this.pacman.x - ghost.x, this.pacman.y - ghost.y) / TILE_SIZE;
       if (ghost.state === 'FRIGHTENED') {
-        this.eatGhost(ghost);
-        break;
-      }
-      if (ghost.harmful) {
+        if (dist < EAT_DISTANCE) {
+          this.eatGhost(ghost);
+          break;
+        }
+      } else if (ghost.harmful && dist < HIT_DISTANCE) {
         this.killPacman();
         return;
       }
@@ -326,13 +338,36 @@ export class Game {
     this.updateEffects();
   }
 
+  // ---------------------------------------------------------------- scatter / chase waves
+
+  /** A new level or a new life starts the wave schedule over, in scatter, without a reversal cue. */
+  resetWaves() {
+    this.waveClock = 0;
+    this.ghostMode = ghostModeAt(0, this.params.waves);
+  }
+
+  /** Advances the wave clock (paused while a power-up is running) and tells the ghosts when it flips. */
+  updateWaves() {
+    if (this.ghosts.some((g) => g.scared)) return;
+    this.waveClock += STEP;
+    const mode = ghostModeAt(this.waveClock, this.params.waves);
+    if (mode === this.ghostMode) return;
+    this.ghostMode = mode;
+    for (const g of this.ghosts) g.onWaveChange();
+  }
+
+  /** "Cruise Elroy": Blinky speeds up for the last pellets of a level (see ELROY_PELLETS). */
+  get elroy() {
+    return this.pelletsLeft > 0 && this.pelletsLeft <= Math.max(1, Math.floor(this.pelletsTotal * ELROY_PELLETS));
+  }
+
   /** Picks the soundtrack for the moment and plays the looping cues (power running out, eyes going home). */
   updateAudio() {
     const sound = this.app.sound;
     let frightLeft = 0;
     let eyes = false;
     for (const g of this.ghosts) {
-      if (g.state === 'FRIGHTENED') frightLeft = Math.max(frightLeft, g.frightenedTimer);
+      if (g.scared) frightLeft = Math.max(frightLeft, g.frightenedTimer);
       else if (g.state === 'EATEN') eyes = true;
     }
     sound.playMusic(frightLeft > 0 ? 'power' : STAGE_TRACK[this.phase.id] || 'classic');
@@ -441,6 +476,7 @@ export class Game {
 
   eatGhost(ghost) {
     ghost.state = 'EATEN';
+    ghost.frightenedTimer = 0;
     this.ghostCombo++;
     const pts = SCORE.GHOST_BASE * 2 ** (this.ghostCombo - 1);
     this.addScore(pts);
@@ -471,6 +507,7 @@ export class Game {
     }
     this.pacman.reset();
     this.ghosts.forEach((g) => g.reset());
+    this.resetWaves();
     this.ghostCombo = 0;
     this.hitStop = 0;
     this.state = 'READY';
@@ -480,16 +517,27 @@ export class Game {
 
   addScore(pts) {
     this.score += pts;
-    if (this.difficulty.extraLife && !this.extraLifeGiven && this.score >= SCORE.EXTRA_LIFE_AT) {
-      this.extraLifeGiven = true;
-      this.lives++;
-      this.updateLives();
-      this.app.sound.extraLife();
-      this.app.haptics.play(HAPTICS.extraLife);
-      this.app.toast(t('toast.extraLife'), 'good');
-      this.app.announce(t('sr.extraLife'));
-    }
+    this.checkExtraLife();
     this.updateScore(pts >= 100);
+  }
+
+  /**
+   * One extra life at 10,000 points. In Endless (including a Campaign continued into Endless) one
+   * more every ENDLESS_LIFE_EVERY points after that, so long survival keeps being rewarded.
+   * Never more than MAX_LIVES at once; Hardcore never grants any.
+   */
+  checkExtraLife() {
+    if (!this.difficulty.extraLife || this.score < this.nextLifeAt) return;
+    if (this.extraLives > 0 && !this.endless) return; // Campaign: only the first one
+    this.extraLives++;
+    this.nextLifeAt += ENDLESS_LIFE_EVERY;
+    if (this.lives >= MAX_LIVES) return;
+    this.lives++;
+    this.updateLives();
+    this.app.sound.extraLife();
+    this.app.haptics.play(HAPTICS.extraLife);
+    this.app.toast(t('toast.extraLife'), 'good');
+    this.app.announce(t('sr.extraLife'));
   }
 
   burst(x, y, color, count = 12) {
@@ -1039,7 +1087,10 @@ export class Game {
   }
 
   updateBest() {
-    this.$('highScore').textContent = formatNumber(Math.max(this.storedBest || 0, this.score || 0));
+    // Custom games are not ranked, so there is no record to show (the score alone would look like one)
+    this.$('highScore').textContent = this.difficulty?.custom
+      ? '—'
+      : formatNumber(Math.max(this.storedBest || 0, this.score || 0));
   }
 
   updateLives() {
@@ -1064,7 +1115,7 @@ export class Game {
   updatePowerBar() {
     const bar = (this.powerBarEl ||= this.$('powerBar'));
     let left = 0;
-    for (const g of this.ghosts || []) if (g.state === 'FRIGHTENED') left = Math.max(left, g.frightenedTimer);
+    for (const g of this.ghosts || []) if (g.scared) left = Math.max(left, g.frightenedTimer);
     const total = this.params ? this.params.frightenedDuration : 1;
     const show = left > 0;
     if (bar.hidden === show) bar.hidden = !show;

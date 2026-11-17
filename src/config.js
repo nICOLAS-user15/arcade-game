@@ -55,14 +55,58 @@ export const GAME_MODES = Object.freeze({
 
 /**
  * Difficulty only scales the existing stage values, so the five stages keep their identity.
- * speed/fright/release are multipliers; lives is the starting count; extraLife grants one more at 10,000 points.
+ * speed/fright/release/scatter are multipliers; lives is the starting count; extraLife grants one
+ * more at 10,000 points (and, in Endless, another every ENDLESS_LIFE_EVERY points after that).
+ * scatter scales how long the ghosts back off to their corners between chases.
  */
 export const DIFFICULTIES = Object.freeze({
-  easy: { id: 'easy', lives: 5, ghostSpeed: 0.85, fright: 1.3, release: 1.35, extraLife: true },
-  normal: { id: 'normal', lives: 3, ghostSpeed: 1, fright: 1, release: 1, extraLife: true },
-  hard: { id: 'hard', lives: 2, ghostSpeed: 1.1, fright: 0.7, release: 0.7, extraLife: true },
-  hardcore: { id: 'hardcore', lives: 1, ghostSpeed: 1.18, fright: 0.5, release: 0.45, extraLife: false }
+  easy: { id: 'easy', lives: 5, ghostSpeed: 0.85, fright: 1.3, release: 1.35, scatter: 1.3, extraLife: true },
+  normal: { id: 'normal', lives: 3, ghostSpeed: 1, fright: 1, release: 1, scatter: 1, extraLife: true },
+  hard: { id: 'hard', lives: 2, ghostSpeed: 1.1, fright: 0.7, release: 0.7, scatter: 0.75, extraLife: true },
+  hardcore: { id: 'hardcore', lives: 1, ghostSpeed: 1.18, fright: 0.5, release: 0.45, scatter: 0.5, extraLife: false }
 });
+
+/** Endless: after the first extra life, one more every this many points (up to MAX_LIVES). */
+export const ENDLESS_LIFE_EVERY = 25000;
+export const MAX_LIVES = 6;
+
+/**
+ * Ghosts never outrun Pac-Man: past KNEE (as a share of his speed) their speed bends smoothly
+ * towards CAP without ever reaching it. A hard clamp would make Hard and Hardcore identical in the
+ * late stages; the soft curve keeps every difficulty slightly faster than the one before.
+ * Difficulty keeps growing through shorter power-ups, faster releases and shorter scatter waves.
+ */
+export const GHOST_SPEED_KNEE = 0.85;
+export const GHOST_SPEED_CAP = 0.95;
+
+export function capGhostSpeed(speed, pacmanSpeed) {
+  const knee = pacmanSpeed * GHOST_SPEED_KNEE;
+  const cap = pacmanSpeed * GHOST_SPEED_CAP;
+  if (speed <= knee) return speed;
+  const room = cap - knee;
+  return knee + room * (1 - Math.exp(-(speed - knee) / room));
+}
+
+/**
+ * Scatter / chase waves, as in the arcade: [scatter seconds, chase seconds] pairs. During scatter
+ * each ghost heads for its own corner, which gives the player a breather; after the last pair the
+ * ghosts chase for good. The clock pauses while a power-up is active.
+ */
+export const BASE_WAVES = Object.freeze([[7, 20], [7, 20], [5, 20], [5, Infinity]]);
+
+/** Which wave the ghosts are in, t seconds into the level. */
+export function ghostModeAt(t, waves) {
+  let elapsed = 0;
+  for (const [scatter, chase] of waves) {
+    if (t < (elapsed += scatter)) return 'scatter';
+    if (t < (elapsed += chase)) return 'chase';
+  }
+  return 'chase';
+}
+
+/** Blinky's "Cruise Elroy": once this share of the pellets is left, he speeds up and stops scattering. */
+export const ELROY_PELLETS = 0.1;
+export const ELROY_SPEED = 1; // as a share of Pac-Man's speed: he matches him, never outruns him
 
 /** Limits of the "Custom" difficulty. Custom games are never ranked. */
 export const CUSTOM_LIMITS = Object.freeze({
@@ -77,7 +121,7 @@ export function difficultyFor(settings) {
   if (settings?.difficulty === 'custom') {
     const lives = clampInt(settings.customLives, CUSTOM_LIMITS.lives);
     const speed = clampInt(settings.customSpeed, CUSTOM_LIMITS.speed);
-    return { id: 'custom', custom: true, lives, speedPct: speed, ghostSpeed: speed / 100, fright: 1, release: 1, extraLife: true };
+    return { id: 'custom', custom: true, lives, speedPct: speed, ghostSpeed: speed / 100, fright: 1, release: 1, scatter: 1, extraLife: true };
   }
   return DIFFICULTIES[settings?.difficulty] || DIFFICULTIES.normal;
 }
@@ -285,9 +329,12 @@ export function levelParams(level, difficulty = DIFFICULTIES.normal) {
   const loop = loopForLevel(level);
   const ghostRamp = Math.min(1.2, 1 + loop * 0.05);
   const frightRamp = Math.max(0.4, 1 - loop * 0.12);
+  // Scatter breaks get shorter with harder difficulties and with every Endless lap
+  const scatterScale = (difficulty.scatter ?? 1) * Math.max(0.4, 1 - loop * 0.15);
   return {
     pacmanSpeed: phase.pacmanSpeed,
-    ghostSpeed: round2(phase.ghostSpeed * difficulty.ghostSpeed * ghostRamp),
+    ghostSpeed: round2(capGhostSpeed(phase.ghostSpeed * difficulty.ghostSpeed * ghostRamp, phase.pacmanSpeed)),
+    waves: BASE_WAVES.map(([scatter, chase]) => [round2(scatter * scatterScale), chase]),
     frightenedDuration: Math.max(1.5, round2(phase.frightenedDuration * difficulty.fright * frightRamp)),
     ghostReleases: phase.ghostReleases.map((t) => round2((t * difficulty.release) / ghostRamp)),
     fruitPoints: phase.fruit.points * (1 + loop),

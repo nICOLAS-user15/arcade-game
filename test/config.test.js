@@ -181,3 +181,39 @@ test('difficultyFor: presets pass through, custom is built from the sliders and 
   assert.equal(low.lives, CUSTOM_LIMITS.lives.min);
   assert.equal(low.speedPct, CUSTOM_LIMITS.speed.min);
 });
+
+test('ghosts never outrun Pac-Man, at any difficulty, stage or Endless lap', async () => {
+  const { GHOST_SPEED_CAP, difficultyFor } = await import('../src/config.js');
+  const all = [...Object.values(DIFFICULTIES), difficultyFor({ difficulty: 'custom', customLives: 3, customSpeed: 140 })];
+  for (const d of all) {
+    for (let level = 1; level <= 80; level++) {
+      const p = levelParams(level, d);
+      assert.ok(p.ghostSpeed <= p.pacmanSpeed * GHOST_SPEED_CAP + 1e-9,
+        `${d.id} level ${level}: ghosts ${p.ghostSpeed} vs Pac-Man ${p.pacmanSpeed}`);
+    }
+  }
+  // The cap is soft: harder difficulties stay strictly faster while below it (stage 4, first lap)...
+  const speed = (id, level) => levelParams(level, DIFFICULTIES[id]).ghostSpeed;
+  assert.ok(speed('easy', 4) < speed('normal', 4) && speed('normal', 4) < speed('hard', 4) && speed('hard', 4) < speed('hardcore', 4));
+  // ...and deep into Endless they all converge on the cap: never slower, and the difficulty gap
+  // comes from the other factors (power-up length, house releases, scatter breaks, lives)
+  assert.ok(speed('easy', 25) <= speed('normal', 25) && speed('normal', 25) <= speed('hard', 25) && speed('hard', 25) <= speed('hardcore', 25));
+  const late = (id) => levelParams(25, DIFFICULTIES[id]);
+  assert.ok(late('normal').frightenedDuration > late('hardcore').frightenedDuration);
+  assert.ok(late('normal').waves[0][0] > late('hardcore').waves[0][0]);
+});
+
+test('scatter/chase waves: arcade schedule, shorter on harder difficulties and later laps', async () => {
+  const { ghostModeAt, BASE_WAVES } = await import('../src/config.js');
+  const waves = levelParams(1, DIFFICULTIES.normal).waves;
+  assert.deepEqual(waves, BASE_WAVES.map(([s, c]) => [s, c]), 'Normal level 1 uses the arcade timings');
+  assert.equal(ghostModeAt(0, waves), 'scatter');
+  assert.equal(ghostModeAt(6.9, waves), 'scatter');
+  assert.equal(ghostModeAt(7.1, waves), 'chase');
+  assert.equal(ghostModeAt(27.1, waves), 'scatter', 'second scatter after 7 + 20 s');
+  assert.equal(ghostModeAt(10000, waves), 'chase', 'chase for good after the last wave');
+  const scatter = (id, level = 1) => levelParams(level, DIFFICULTIES[id]).waves[0][0];
+  assert.ok(scatter('easy') > scatter('normal') && scatter('normal') > scatter('hard') && scatter('hard') > scatter('hardcore'));
+  assert.ok(scatter('normal', 6) < scatter('normal', 1), 'Endless laps shorten the breaks');
+  assert.ok(scatter('hardcore', 80) > 0, 'never disappears entirely');
+});
