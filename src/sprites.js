@@ -5,12 +5,13 @@
  * Colors come from the active theme's skin (see setSkin and themes.js).
  */
 
-import { THEMES, DEFAULT_THEME } from './themes.js';
+import { THEMES, DEFAULT_THEME, CHARACTERS, DEFAULT_CHARACTER } from './themes.js';
 
 const TAU = Math.PI * 2;
 const REF_RADIUS = 8.8; // TILE_SIZE * 0.44, the radius the proportions were designed for
 
 let skin = THEMES[DEFAULT_THEME].skin;
+let character = CHARACTERS[DEFAULT_CHARACTER];
 
 export function setSkin(next) {
   skin = next;
@@ -20,11 +21,27 @@ export function getSkin() {
   return skin;
 }
 
-export function drawPacman(ctx, x, y, r, { angle = 0, mouth = 0.2, glow = false } = {}) {
+export function setCharacter(id) {
+  character = CHARACTERS[id] || CHARACTERS[DEFAULT_CHARACTER];
+}
+
+/** Pac-Man's body color: the character's own color, or the theme's. */
+export function pacmanColor(char = character) {
+  return char.color || skin.pacman;
+}
+
+/**
+ * Pac-Man sprite. `as` draws a specific character (menu previews) instead of the selected one.
+ * Ms. Pac-Man's bow is drawn upright whatever the direction, like in the arcade.
+ */
+export function drawPacman(ctx, x, y, r, { angle = 0, mouth = 0.2, glow = false, as = null } = {}) {
+  const char = (as && CHARACTERS[as]) || character;
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.fillStyle = skin.pacman;
+  // Facing left is mirrored rather than rotated, so the eye (and bow) stay on top
+  if (Math.abs(Math.cos(angle) + 1) < 1e-6) ctx.scale(-1, 1);
+  else ctx.rotate(angle);
+  ctx.fillStyle = pacmanColor(char);
   if (glow && skin.glow) {
     ctx.shadowColor = 'rgba(250, 204, 21, 0.9)';
     ctx.shadowBlur = 14;
@@ -39,6 +56,31 @@ export function drawPacman(ctx, x, y, r, { angle = 0, mouth = 0.2, glow = false 
   ctx.arc(r * 0.15, -r * 0.55, Math.max(1.4, r * 0.18), 0, TAU);
   ctx.fill();
   ctx.restore();
+  if (char.bow) drawBow(ctx, x, y, r, Math.abs(Math.cos(angle) + 1) < 1e-6 ? 1 : -1);
+}
+
+/** Ms. Pac-Man's bow on the back of the head (side: 1 = facing left, -1 = otherwise). */
+function drawBow(ctx, x, y, r, side) {
+  const bx = x + side * r * 0.35;
+  const by = y - r * 0.82;
+  const s = r * 0.42;
+  ctx.save();
+  ctx.fillStyle = '#ff2a4f';
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(bx - s, by - s * 0.7);
+  ctx.lineTo(bx - s, by + s * 0.7);
+  ctx.closePath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(bx + s, by - s * 0.7);
+  ctx.lineTo(bx + s, by + s * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffd1dc';
+  ctx.beginPath();
+  ctx.arc(bx, by, Math.max(1, s * 0.32), 0, TAU);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** progress 0..1: the mouth opens until Pac-Man vanishes. */
@@ -46,7 +88,7 @@ export function drawPacmanDying(ctx, x, y, r, progress) {
   const a = Math.min(Math.PI, progress * Math.PI);
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = skin.pacman;
+  ctx.fillStyle = pacmanColor();
   ctx.beginPath();
   ctx.arc(0, 0, r, a - Math.PI / 2, TAU - a - Math.PI / 2);
   ctx.lineTo(0, 0);

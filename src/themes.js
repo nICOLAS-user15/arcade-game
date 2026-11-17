@@ -118,6 +118,19 @@ export const THEMES = Object.freeze({
   }
 });
 
+/**
+ * Playable characters. They only change how Pac-Man looks, never the rules.
+ * color null = the theme's own Pac-Man color; bow = Ms. Pac-Man's red bow.
+ */
+export const DEFAULT_CHARACTER = 'pac';
+export const CHARACTER_IDS = ['pac', 'ms', 'cherry', 'mint'];
+export const CHARACTERS = Object.freeze({
+  pac: { id: 'pac', color: null, bow: false },
+  ms: { id: 'ms', color: null, bow: true },
+  cherry: { id: 'cherry', color: '#ff6fae', bow: false },
+  mint: { id: 'mint', color: '#3ff0c0', bow: false }
+});
+
 export function getTheme(id) {
   return Object.hasOwn(THEMES, id) ? THEMES[id] : THEMES[DEFAULT_THEME];
 }

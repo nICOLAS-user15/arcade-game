@@ -177,3 +177,29 @@ test('a backend that throws never crashes the game', () => {
   assert.doesNotThrow(() => st.resetProgress());
   assert.equal(st.best('campaign', 'normal').score, 0);
 });
+
+test('custom difficulty: saved values are clamped and custom games are a valid choice', () => {
+  const backend = new MemoryBackend();
+  backend.setItem('pacman_settings', JSON.stringify({ version: 2, difficulty: 'custom', customLives: 99, customSpeed: 10, startStage: 9, character: 'nope' }));
+  const s = new Storage(backend).loadSettings();
+  assert.equal(s.difficulty, 'custom');
+  assert.equal(s.customLives, 5);
+  assert.equal(s.customSpeed, 70);
+  assert.equal(s.startStage, 5);
+  assert.equal(s.character, 'pac');
+});
+
+test('start stages unlock as stages are reached, and older bests count', () => {
+  const storage = new Storage(new MemoryBackend());
+  assert.equal(storage.maxStage(), 1);
+  storage.reachStage(3);
+  assert.equal(storage.maxStage(), 3);
+  storage.reachStage(2); // never goes down
+  assert.equal(storage.maxStage(), 3);
+  storage.reachStage(12); // endless levels past the last stage cap at 5
+  assert.equal(storage.maxStage(), 5);
+  storage.resetProgress();
+  assert.equal(storage.maxStage(), 1);
+  storage.submitScore('endless', 'normal', 5000, 4);
+  assert.equal(storage.maxStage(), 4);
+});

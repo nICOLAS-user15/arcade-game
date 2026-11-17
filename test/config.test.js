@@ -170,3 +170,14 @@ test('Endless: every lap is harder but stays bounded and playable', () => {
     assert.equal(levelParams(6, d).fruitPoints, PHASES[0].fruit.points * 2);
   }
 });
+
+test('difficultyFor: presets pass through, custom is built from the sliders and clamped', async () => {
+  const { difficultyFor, CUSTOM_LIMITS } = await import('../src/config.js');
+  assert.equal(difficultyFor({ difficulty: 'hard' }), DIFFICULTIES.hard);
+  assert.equal(difficultyFor({ difficulty: 'bogus' }), DIFFICULTIES.normal);
+  const c = difficultyFor({ difficulty: 'custom', customLives: 4, customSpeed: 120 });
+  assert.deepEqual([c.id, c.custom, c.lives, c.ghostSpeed], ['custom', true, 4, 1.2]);
+  const low = difficultyFor({ difficulty: 'custom', customLives: 0, customSpeed: 5 });
+  assert.equal(low.lives, CUSTOM_LIMITS.lives.min);
+  assert.equal(low.speedPct, CUSTOM_LIMITS.speed.min);
+});

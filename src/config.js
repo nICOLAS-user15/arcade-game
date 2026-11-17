@@ -64,6 +64,24 @@ export const DIFFICULTIES = Object.freeze({
   hardcore: { id: 'hardcore', lives: 1, ghostSpeed: 1.18, fright: 0.5, release: 0.45, extraLife: false }
 });
 
+/** Limits of the "Custom" difficulty. Custom games are never ranked. */
+export const CUSTOM_LIMITS = Object.freeze({
+  lives: { min: 1, max: 5, def: 3 },
+  speed: { min: 70, max: 140, step: 5, def: 100 } // ghost speed, % of Normal
+});
+
+const clampInt = (v, { min, max, def }) => (Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : def);
+
+/** The difficulty object for the saved settings, including the player-tuned "custom" one. */
+export function difficultyFor(settings) {
+  if (settings?.difficulty === 'custom') {
+    const lives = clampInt(settings.customLives, CUSTOM_LIMITS.lives);
+    const speed = clampInt(settings.customSpeed, CUSTOM_LIMITS.speed);
+    return { id: 'custom', custom: true, lives, speedPct: speed, ghostSpeed: speed / 100, fright: 1, release: 1, extraLife: true };
+  }
+  return DIFFICULTIES[settings?.difficulty] || DIFFICULTIES.normal;
+}
+
 export const GHOST_DEFS = Object.freeze([
   { name: 'Blinky', color: '#ff2a2a', startCol: 9, startRow: 8, corner: { x: 18, y: 0 } },
   { name: 'Pinky', color: '#ffb8ff', startCol: 9, startRow: 10, corner: { x: 0, y: 0 } },

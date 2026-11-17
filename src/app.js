@@ -7,7 +7,7 @@ import { Storage } from './storage.js';
 import { SoundController, Haptics } from './audio.js';
 import { setLang, onLangChange } from './i18n.js';
 import { getTheme, canvasFont } from './themes.js';
-import { setSkin } from './sprites.js';
+import { setSkin, setCharacter } from './sprites.js';
 
 export class App {
   constructor() {
@@ -87,6 +87,7 @@ export class App {
     const theme = this.theme;
     root.dataset.theme = theme.id;
     setSkin(theme.skin);
+    setCharacter(s.character);
     // The canvas does not trigger web font downloads by itself; ask for the theme's font now
     document.fonts?.load(canvasFont(theme, 12)).catch(() => {});
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.chrome);

@@ -4,9 +4,9 @@
  * (private mode, blocked cookies, quota) and the game must keep working.
  */
 
-import { DIFFICULTIES, GAME_MODES } from './config.js';
+import { DIFFICULTIES, GAME_MODES, CUSTOM_LIMITS, PHASE_COUNT, difficultyFor } from './config.js';
 import { isSupported, DEFAULT_LANG } from './i18n.js';
-import { THEMES, DEFAULT_THEME } from './themes.js';
+import { THEMES, DEFAULT_THEME, CHARACTERS, DEFAULT_CHARACTER } from './themes.js';
 
 const PREFIX = 'pacman_';
 const LEGACY_HIGH_SCORE_KEY = 'pacman_high_score';
@@ -28,7 +28,11 @@ export function defaultSettings(prefersReducedMotion = false) {
     dpad: 'auto',
     theme: DEFAULT_THEME,
     mode: 'campaign',
-    difficulty: 'normal'
+    difficulty: 'normal',
+    customLives: CUSTOM_LIMITS.lives.def,
+    customSpeed: CUSTOM_LIMITS.speed.def,
+    startStage: 1,
+    character: DEFAULT_CHARACTER
   };
 }
 
@@ -123,7 +127,12 @@ export class Storage {
     if (!isSupported(s.lang)) s.lang = DEFAULT_LANG;
     if (!DPAD_MODES.includes(s.dpad)) s.dpad = 'auto';
     if (!GAME_MODES[s.mode]) s.mode = 'campaign';
-    if (!DIFFICULTIES[s.difficulty]) s.difficulty = 'normal';
+    if (!DIFFICULTIES[s.difficulty] && s.difficulty !== 'custom') s.difficulty = 'normal';
+    const custom = difficultyFor({ difficulty: 'custom', customLives: s.customLives, customSpeed: s.customSpeed });
+    s.customLives = custom.lives;
+    s.customSpeed = custom.speedPct;
+    s.startStage = Number.isInteger(s.startStage) ? Math.min(PHASE_COUNT, Math.max(1, s.startStage)) : 1;
+    if (!Object.hasOwn(CHARACTERS, s.character)) s.character = DEFAULT_CHARACTER;
     if (!Object.hasOwn(THEMES, s.theme)) s.theme = DEFAULT_THEME;
     s.sfxVolume = clampVolume(s.sfxVolume);
     s.musicVolume = clampVolume(s.musicVolume);
@@ -237,6 +246,22 @@ export class Storage {
     return s.gamesPlayed;
   }
 
+  /**
+   * Highest stage (1..PHASE_COUNT) the player has reached in any mode. Endless can start from
+   * any stage up to this one. Older saves count too: their best results store the level reached.
+   */
+  maxStage() {
+    let best = Number(this.read('progress', {})?.maxStage) || 1;
+    for (const e of Object.values(this.allScores())) best = Math.max(best, Number(e?.level) || 1);
+    return Math.min(PHASE_COUNT, Math.max(1, Math.floor(best)));
+  }
+
+  reachStage(level) {
+    const stage = Math.min(PHASE_COUNT, Math.floor(level));
+    if (!(stage > this.maxStage())) return;
+    this.write('progress', { maxStage: stage });
+  }
+
   seen(name) {
     const seen = this.read('seen', {});
     return !!(seen && seen[name]);
@@ -249,7 +274,7 @@ export class Storage {
 
   /** Erases scores, stats and onboarding progress but keeps the user's settings. */
   resetProgress() {
-    for (const key of ['scores', 'board', 'player', 'stats', 'seen']) {
+    for (const key of ['scores', 'board', 'player', 'stats', 'seen', 'progress']) {
       try {
         this.backend.removeItem(PREFIX + key);
       } catch {
