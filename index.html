@@ -152,16 +152,6 @@
 
          <div class="setup-col">
           <div class="field">
-            <span id="lblChar" class="field-label" data-i18n="menu.character">CHARACTER</span>
-            <div id="charPicker" class="segmented chars" role="radiogroup" aria-labelledby="lblChar">
-              <button type="button" role="radio" aria-checked="true" data-char="pac"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.pac">Pac-Man</span></button>
-              <button type="button" role="radio" aria-checked="false" data-char="ms"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.ms">Ms. Pac</span></button>
-              <button type="button" role="radio" aria-checked="false" data-char="cherry"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.cherry">Cherry</span></button>
-              <button type="button" role="radio" aria-checked="false" data-char="mint"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.mint">Mint</span></button>
-            </div>
-          </div>
-
-          <div class="field">
             <span id="lblTheme" class="field-label" data-i18n="menu.theme">THEME</span>
             <canvas id="themePreview" class="theme-preview" width="360" height="88" role="img"></canvas>
             <div id="themePicker" class="segmented themes" role="radiogroup" aria-labelledby="lblTheme">
@@ -407,6 +397,16 @@
             <button type="button" role="radio" aria-checked="false" data-theme-id="retro"><span class="swatch" data-sw="retro" aria-hidden="true"></span><span data-i18n="theme.retro">Retro</span></button>
             <button type="button" role="radio" aria-checked="false" data-theme-id="pastel"><span class="swatch" data-sw="pastel" aria-hidden="true"></span><span data-i18n="theme.pastel">Pastel</span></button>
             <button type="button" role="radio" aria-checked="false" data-theme-id="minimal"><span class="swatch" data-sw="minimal" aria-hidden="true"></span><span data-i18n="theme.minimal">Minimal</span></button>
+          </div>
+        </div>
+
+        <div class="setting stacked">
+          <span class="setting-text"><b id="lblChar" data-i18n="settings.character">Character</b><small data-i18n="settings.character.hint">Only changes the look, never the rules</small></span>
+          <div id="charPicker" class="segmented chars" role="radiogroup" aria-labelledby="lblChar">
+            <button type="button" role="radio" aria-checked="true" data-char="pac"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.pac">Pac-Man</span></button>
+            <button type="button" role="radio" aria-checked="false" data-char="ms"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.ms">Ms. Pac</span></button>
+            <button type="button" role="radio" aria-checked="false" data-char="cherry"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.cherry">Cherry</span></button>
+            <button type="button" role="radio" aria-checked="false" data-char="mint"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.mint">Mint</span></button>
           </div>
         </div>
 

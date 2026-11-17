@@ -19,7 +19,7 @@ import { HAPTICS } from './audio.js';
 import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
-import { typingName } from './storage.js';
+import { typingName, cleanName } from './storage.js';
 
 const MODALS = ['pauseModal', 'briefingModal', 'standardModal', 'initialsModal'];
 const TAU = Math.PI * 2;
@@ -32,6 +32,11 @@ const HIT_STOP = 0.12;
  */
 const HIT_DISTANCE = 0.6;
 const EAT_DISTANCE = 0.75;
+/** Tunnels wrap the board with this period (see wrapAround in entities.js). */
+const WRAP_W = (COLS + 1) * TILE_SIZE;
+const WRAP_H = (ROWS + 1) * TILE_SIZE;
+/** Shortest offset across a tunnel: one actor at x = -5 and another at x = 385 are touching. */
+const wrapDelta = (d, period) => (Math.abs(d) > period / 2 ? d - Math.sign(d) * period : d);
 const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
 /**
  * The 3-2-1 countdown under "READY!", in seconds. Always three digits, only the pace changes:
@@ -158,6 +163,8 @@ export class Game {
     this.lives = this.difficulty.lives;
     this.extraLives = 0;
     this.nextLifeAt = SCORE.EXTRA_LIFE_AT;
+    this.boardEntry = null; // this run's place on the high-score table, once it has one
+    this.pauseOnReady = false;
     this.storedBest = this.app.storage.best(this.mode, this.difficulty.id).score;
     this.cutscene = null;
     this.updateScore();
@@ -234,6 +241,8 @@ export class Game {
     this.countDigit = 0;
     this.goTimer = 0;
     this.acc = 0;
+    // A direction still held on the gamepad counts again (Pac-Man was reset facing left)
+    this.input.padDir = null;
   }
 
   /** The digit on screen (3, 2 or 1) for the current countdown. */
@@ -250,6 +259,11 @@ export class Game {
   }
 
   tickCountdown() {
+    if (this.pauseOnReady) {
+      this.pauseOnReady = false;
+      this.pause();
+      return;
+    }
     this.readyTimer -= STEP;
     const digit = this.countdownDigit;
     if (this.readyTimer > 0 && digit !== this.countDigit) {
@@ -275,6 +289,10 @@ export class Game {
 
   showMenu() {
     this.commitScore();
+    this.pauseOnReady = false;
+    // Leaving from the pause menu or mid final-rush must not carry the muffled / faster music over
+    this.app.sound.duckMusic(false);
+    this.app.sound.setMusicTempo(1);
     this.state = 'MENU';
     this.screen = 'menu';
     this.hideOverlay();
@@ -361,7 +379,7 @@ export class Game {
     for (const ghost of this.ghosts) ghost.step(); // all ghosts move before collisions, so eating one never freezes the rest
     for (const ghost of this.ghosts) {
       if (ghost.state === 'EATEN' || ghost.state === 'IN_HOUSE') continue;
-      const dist = Math.hypot(this.pacman.x - ghost.x, this.pacman.y - ghost.y) / TILE_SIZE;
+      const dist = Math.hypot(wrapDelta(this.pacman.x - ghost.x, WRAP_W), wrapDelta(this.pacman.y - ghost.y, WRAP_H)) / TILE_SIZE;
       if (ghost.state === 'FRIGHTENED') {
         if (dist < EAT_DISTANCE) {
           this.eatGhost(ghost);
@@ -537,6 +555,7 @@ export class Game {
     this.pacman.isDying = true;
     this.pacman.deathProgress = 0;
     this.app.sound.stopMusic();
+    this.app.sound.setMusicTempo(1); // the final-rush speed-up must not reach the game-over jingle
     this.app.sound.death();
     this.app.haptics.play(HAPTICS.death);
   }
@@ -597,6 +616,7 @@ export class Game {
     this.state = 'STAGE_CLEAR';
     // Campaign: long enough for the jingle. Endless: just a quick flash, the run keeps going.
     this.stageTimer = this.endless ? ENDLESS_CLEAR_FLASH : 1.5;
+    this.app.sound.setMusicTempo(1);
     this.app.sound.playJingle('stageClear');
     this.app.haptics.play(HAPTICS.stageClear);
     this.commitScore();
@@ -711,6 +731,9 @@ export class Game {
       primary: [t('result.endless'), () => {
         this.endless = true;
         this.cutscene = null;
+        // Campaign stopped counting lives after the first one: start from the next milestone above
+        // the current score, not from every milestone already passed (several lives at once)
+        if (this.extraLives > 0) while (this.nextLifeAt <= this.score) this.nextLifeAt += ENDLESS_LIFE_EVERY;
         this.loadLevel(this.level + 1);
         this.beginLevel(true);
       }],
@@ -735,6 +758,12 @@ export class Game {
     }));
   }
 
+  /** Keeps track of this run's table entry, so a continued run updates it later. */
+  rememberEntry(rank, name) {
+    const entry = rank >= 0 ? this.app.storage.board(this.mode, this.difficulty.id)[rank] : null;
+    this.boardEntry = entry ? { date: entry.date, name } : null;
+  }
+
   /**
    * Name prompt when the finished run makes the top-10 table.
    * Calls done(rank) with the zero-based position, or -1 when nothing was saved.
@@ -743,6 +772,15 @@ export class Game {
     const { storage } = this.app;
     const { mode, score, level } = this;
     const diff = this.difficulty.id;
+    // A Campaign won and continued into Endless already has its entry: update it, never add a second
+    const prev = this.boardEntry;
+    if (prev && !this.difficulty.custom) {
+      storage.removeFromBoard(mode, diff, prev);
+      const rank = storage.addToBoard(mode, diff, { name: prev.name, score, level });
+      this.rememberEntry(rank, prev.name);
+      done(rank);
+      return;
+    }
     const place = this.difficulty.custom ? -1 : storage.rankFor(mode, diff, score);
     if (place < 0) {
       done(-1);
@@ -752,7 +790,11 @@ export class Game {
     input.value = storage.lastName();
     this.$('initialsRank').textContent = t('initials.rank', { n: place + 1, score: formatNumber(score) });
     this.initialsActions = {
-      save: () => done(storage.addToBoard(mode, diff, { name: input.value, score, level })),
+      save: () => {
+        const rank = storage.addToBoard(mode, diff, { name: input.value, score, level });
+        this.rememberEntry(rank, cleanName(input.value));
+        done(rank);
+      },
       skip: () => done(-1)
     };
     this.showOverlayModal('initialsModal');
@@ -1347,7 +1389,8 @@ export class Game {
     nameInput.addEventListener('compositionend', filterName);
     nameInput.addEventListener('keydown', (e) => {
       if (e.isComposing) return;
-      if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+      // Phone keyboards often send an empty `code` for their "Done" key, so check `key` too
+      if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
         e.preventDefault();
         this.initialsActions?.save();
       } else if (e.code === 'Escape') {
@@ -1359,7 +1402,11 @@ export class Game {
     document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
     document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && this.screen === 'game') this.pause();
+      if (!document.hidden || this.screen !== 'game') return;
+      // Away in the middle of a death or a stage clear: pause as soon as the next countdown starts,
+      // instead of letting the game run on into play while nobody is looking
+      if (this.state === 'DYING' || this.state === 'STAGE_CLEAR') this.pauseOnReady = true;
+      else this.pause();
     });
     window.addEventListener('pagehide', () => this.commitScore());
   }

@@ -132,7 +132,7 @@ export const CHARACTERS = Object.freeze({
 });
 
 export function getTheme(id) {
-  return Object.hasOwn(THEMES, id) ? THEMES[id] : THEMES[DEFAULT_THEME];
+  return Object.prototype.hasOwnProperty.call(THEMES, id) ? THEMES[id] : THEMES[DEFAULT_THEME];
 }
 
 /** Colors of one stage in one theme, with the derived glow used by the HUD and the board border. */

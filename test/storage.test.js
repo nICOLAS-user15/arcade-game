@@ -124,6 +124,18 @@ test('top-10 table: sorted, capped at ten, ties go below, names sanitized', () =
   assert.equal(st.addToBoard('campaign', 'hard', { name: 'LOW', score: 100, level: 1 }), -1);
 });
 
+test('a continued run replaces its own table entry instead of adding a second one', () => {
+  const st = fresh();
+  st.addToBoard('campaign', 'normal', { name: 'Ana', score: 800, level: 2 });
+  const rank = st.addToBoard('campaign', 'normal', { name: 'Bia', score: 500, level: 5 });
+  const { date } = st.board('campaign', 'normal')[rank];
+  st.removeFromBoard('campaign', 'normal', { date, name: 'Bia' });
+  st.addToBoard('campaign', 'normal', { name: 'Bia', score: 1200, level: 8 });
+  assert.deepEqual(st.board('campaign', 'normal').map((e) => [e.name, e.score]), [['Bia', 1200], ['Ana', 800]]);
+  st.removeFromBoard('campaign', 'normal', { date: 0, name: 'Ana' });
+  assert.equal(st.board('campaign', 'normal').length, 2, 'entries without a date stamp are never removed');
+});
+
 test('old personal bests become the first table entries once; corrupt data is survivable', () => {
   const old = new MemoryBackend();
   new Storage(old).submitScore('campaign', 'normal', 4000, 3);

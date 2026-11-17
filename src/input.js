@@ -85,6 +85,7 @@ export class Input {
           else g.togglePause();
           break;
         case 'Escape':
+          if (e.repeat) return; // holding Esc must not flicker between paused and playing
           g.togglePause();
           break;
         default:
@@ -97,15 +98,29 @@ export class Input {
     return [r.left + r.width / 2, r.top + r.height / 2];
   }
 
+  /** Focusable controls of the modal open over the board (pause, briefing, result, name). */
+  overlayControls() {
+    const modal = [...this.game.overlay.children].find((m) => !m.hidden);
+    return modal ? [...modal.querySelectorAll('input:not([hidden]), button:not([hidden])')] : [];
+  }
+
+  /** Moves focus to the next/previous control of the open modal (keyboard arrows, gamepad). */
+  moveOverlayFocus(step) {
+    const list = this.overlayControls();
+    if (!list.length) return false;
+    const i = list.indexOf(document.activeElement);
+    list[(i + step + list.length) % list.length].focus();
+    return true;
+  }
+
   /** Keyboard behaviour while a pause/briefing/result modal is open: focus stays inside it. */
   overlayKeys(e) {
     const g = this.game;
-    const modal = [...g.overlay.children].find((m) => !m.hidden);
-    const buttons = modal ? [...modal.querySelectorAll('button:not([hidden])')] : [];
+    const buttons = this.overlayControls();
 
     if ((e.code === 'Escape' || e.code === 'KeyP') && g.state === 'PAUSED') {
       e.preventDefault();
-      g.resume();
+      if (!e.repeat) g.resume(); // the key that paused, held down, must not resume
       return;
     }
     if (!buttons.length) return;
@@ -217,7 +232,7 @@ export class Input {
     else if (btn(13) || ay > 0.5) dir = DIRS.DOWN;
     else if (btn(14) || ax < -0.5) dir = DIRS.LEFT;
     else if (btn(15) || ax > 0.5) dir = DIRS.RIGHT;
-    if (dir && dir !== this.padDir && g.screen === 'game' && !g.overlayOpen) g.steer(dir);
+    const newDir = dir && dir !== this.padDir;
     this.padDir = dir;
 
     const pressed = (i) => {
@@ -229,13 +244,28 @@ export class Input {
     const start = pressed(9);
     const a = pressed(0);
     const b = pressed(1);
-    if (g.screen !== 'game') return;
-    if (start) g.togglePause();
-    if (a) {
-      // A / Cross: collect cutscene bonus, or press the focused modal button
-      if (g.state === 'INTERMISSION') g.onBoardTap(...this.boardCenter());
-      else if (g.overlayOpen) document.activeElement?.click?.();
+    // Settings (or any dialog) opened from the pause menu owns the input: nothing reaches the game
+    if (g.screen !== 'game' || this.dialogOpen) return;
+
+    if (g.overlayOpen) {
+      // Modals: the pad moves between their buttons, A presses, B backs out
+      if (newDir) this.moveOverlayFocus(dir === DIRS.UP || dir === DIRS.LEFT ? -1 : 1);
+      const naming = !g.$('initialsModal').hidden;
+      if (a) {
+        if (naming && document.activeElement?.tagName === 'INPUT') g.initialsActions?.save();
+        else document.activeElement?.click?.();
+      }
+      if (b) {
+        if (naming) g.initialsActions?.skip();
+        else if (g.state === 'PAUSED') g.resume();
+      }
+      if (start && g.state === 'PAUSED') g.resume();
+      return;
     }
-    if (b && g.state === 'PAUSED') g.resume();
+
+    if (newDir) g.steer(dir);
+    if (start) g.togglePause();
+    // A / Cross: collect the cutscene bonus
+    if (a && g.state === 'INTERMISSION') g.onBoardTap(...this.boardCenter());
   }
 }

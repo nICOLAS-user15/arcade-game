@@ -150,8 +150,10 @@ export class Storage {
     s.customLives = custom.lives;
     s.customSpeed = custom.speedPct;
     s.startStage = Number.isInteger(s.startStage) ? Math.min(PHASE_COUNT, Math.max(1, s.startStage)) : 1;
-    if (!Object.hasOwn(CHARACTERS, s.character)) s.character = DEFAULT_CHARACTER;
-    if (!Object.hasOwn(THEMES, s.theme)) s.theme = DEFAULT_THEME;
+    // hasOwnProperty, not Object.hasOwn: the latter throws at startup on Safari before 15.4
+    const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+    if (!own(CHARACTERS, s.character)) s.character = DEFAULT_CHARACTER;
+    if (!own(THEMES, s.theme)) s.theme = DEFAULT_THEME;
     s.sfxVolume = clampVolume(s.sfxVolume);
     s.musicVolume = clampVolume(s.musicVolume);
     return s;
@@ -243,6 +245,14 @@ export class Storage {
     this.write('board', { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [scoreKey(mode, difficulty)]: list });
     this.write('player', { name: cleanName(name) });
     return rank;
+  }
+
+  /** Removes one entry, found by its date stamp and name (a continued run replaces its own entry). */
+  removeFromBoard(mode, difficulty, { date, name }) {
+    if (!date) return;
+    const list = this.board(mode, difficulty).filter((e) => !(e.date === date && e.name === (cleanName(name) || '---')));
+    const all = this.read('board', {});
+    this.write('board', { ...(all && typeof all === 'object' && !Array.isArray(all) ? all : {}), [scoreKey(mode, difficulty)]: list });
   }
 
   /** Name used last time, offered again on the next entry ("---" placeholders are not names). */

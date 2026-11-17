@@ -239,9 +239,10 @@ export class MenuUI {
   }
 
   /**
-   * Changes the theme with a short animation: the new look spreads out in a circle from the
-   * button that was pressed (View Transitions API), or fades in where that API is missing.
-   * Reduced motion switches instantly.
+   * Changes the theme with a short "arcade monitor changing channel" effect: the old picture
+   * collapses into a bright line and the new one opens out of it (CSS in style.css, driven by the
+   * View Transitions API). Without that API only the "switch on" half plays; reduced motion
+   * switches instantly.
    */
   switchTheme(id, origin) {
     const apply = () => {
@@ -252,23 +253,17 @@ export class MenuUI {
       apply();
       return;
     }
-    const r = origin.getBoundingClientRect();
-    const x = Math.round(r.left + r.width / 2);
-    const y = Math.round(r.top + r.height / 2);
     if (typeof document.startViewTransition === 'function') {
-      const transition = document.startViewTransition(apply);
-      transition.ready.then(() => {
-        const radius = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
-        document.documentElement.animate(
-          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-          { duration: 560, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', pseudoElement: '::view-transition-new(root)' }
-        );
-      }).catch(() => {});
+      document.startViewTransition(apply).ready.catch(() => {});
       return;
     }
     apply();
     for (const el of document.querySelectorAll('.menu-card, dialog[open]')) {
-      el.animate?.([{ opacity: 0.35, transform: 'scale(0.985)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'ease-out' });
+      el.animate?.([
+        { transform: 'scale(0.5, 0.01)', filter: 'brightness(4)' },
+        { transform: 'scaleY(0.04)', filter: 'brightness(2.4)', offset: 0.35 },
+        { transform: 'none', filter: 'none' }
+      ], { duration: 260, easing: 'cubic-bezier(0.1, 0.55, 0.35, 1)' });
     }
   }
 
@@ -376,7 +371,7 @@ export class MenuUI {
     const stageName = t(`phase.${PHASES[start - 1].id}.name`);
     this.$('stageHint').textContent = maxStage < PHASE_COUNT ? `${stageName} · ${t('menu.startStage.hint')}` : stageName;
 
-    // Character and theme previews
+    // Character (chosen in Settings) and theme previews
     setChecked(this.$('charPicker'), (r) => r.dataset.char === s.character);
     this.drawCharacters();
     this.$('themeHint').textContent = t(`theme.${theme.id}.hint`);
@@ -560,7 +555,6 @@ export class MenuUI {
             $('customLives'),
             $('customSpeed'),
             $('stagePicker').querySelector('[aria-checked="true"]'),
-            $('charPicker').querySelector('[aria-checked="true"]'),
             $('themePicker').querySelector('[aria-checked="true"]'),
             $('btnPlay')
           ]
