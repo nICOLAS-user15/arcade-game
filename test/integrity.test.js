@@ -14,10 +14,12 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const html = read('index.html');
 const srcFiles = fs.readdirSync(path.join(root, 'src')).filter((f) => f.endsWith('.js'));
 
-const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+// Real id attributes only: `\bid=` would also match data-*-id attributes such as data-theme-id
+const ID_ATTR = /(?<![\w-])id="([^"]+)"/g;
+const ids = new Set([...html.matchAll(ID_ATTR)].map((m) => m[1]));
 
 test('HTML ids are unique', () => {
-  const all = [...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  const all = [...html.matchAll(ID_ATTR)].map((m) => m[1]);
   const dupes = all.filter((id, i) => all.indexOf(id) !== i);
   assert.deepEqual(dupes, []);
 });

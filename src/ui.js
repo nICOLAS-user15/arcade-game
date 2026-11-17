@@ -3,18 +3,42 @@
  * the "How to play" tutorial, settings and the high-score table.
  */
 
-import { DIFFICULTIES, GHOST_DEFS, PHASES, PHASE_COUNT } from './config.js';
+import { DIFFICULTIES, GHOST_DEFS, PHASES, PHASE_COUNT, difficultyFor } from './config.js';
 import { t, formatNumber } from './i18n.js';
 import { BOARD_SIZE } from './storage.js';
 import { Starfield, AttractLane } from './menu-fx.js';
 import { drawPacman, drawGhost, drawPowerPellet, drawPellet, drawEmoji } from './sprites.js';
+import { stageLook, shade } from './themes.js';
+
+const LANE_STILL_MS = 1950;
+const DIFF_IDS = ['easy', 'normal', 'hard', 'hardcore'];
+
+/** Ghost speed multiplier -> 1..4 bars, so difficulties can be compared at a glance. */
+function speedBars(ghostSpeed) {
+  if (ghostSpeed < 0.95) return 1;
+  if (ghostSpeed < 1.05) return 2;
+  if (ghostSpeed < 1.15) return 3;
+  return 4;
+}
+
+/** Sizes a canvas for the screen's pixel density and returns a context in CSS pixels. */
+function hiDpiContext(cv, w, h) {
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(w * dpr)) {
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+  }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
 
 /** Accessible segmented control (role=radiogroup) with arrow-key navigation. */
 function bindRadioGroup(group, onSelect) {
-  const radios = () => [...group.querySelectorAll('[role="radio"]')];
+  const radios = () => [...group.querySelectorAll('[role="radio"]:not(:disabled)')];
   group.addEventListener('click', (e) => {
     const btn = e.target.closest('[role="radio"]');
-    if (btn) onSelect(btn);
+    if (btn && !btn.disabled) onSelect(btn);
   });
   group.addEventListener('keydown', (e) => {
     const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -50,11 +74,12 @@ export class MenuUI {
     this.raf = 0;
     this.lastPreview = 0;
     this.boardMode = app.settings.mode;
-    this.boardDiff = app.settings.difficulty;
+    this.boardDiff = DIFFICULTIES[app.settings.difficulty] ? app.settings.difficulty : 'normal';
 
     this.stars = new Starfield(this.$('menuBg'));
     this.lane = new AttractLane(this.$('menuLane'));
 
+    this.buildDiffMeta();
     this.bind();
     app.onChange(() => this.refresh());
     this.refresh();
@@ -68,7 +93,21 @@ export class MenuUI {
     this.refresh();
     this.stars.resize();
     this.startFx();
-    setTimeout(() => this.$('btnPlay').focus({ preventScroll: true }), 30);
+    this.showView('home');
+  }
+
+  /** Switches the menu card between the home buttons and the game-mode setup. */
+  showView(view, { focus = true } = {}) {
+    const setup = view === 'setup';
+    this.view = setup ? 'setup' : 'home';
+    this.$('menuHome').hidden = setup;
+    this.$('menuSetup').hidden = !setup;
+    this.root.querySelector('.menu-card').dataset.view = this.view;
+    if (setup) {
+      this.refreshSetup();
+      this.root.scrollTop = 0;
+    }
+    if (focus) setTimeout(() => this.$(setup ? 'btnPlay' : 'btnGameMode').focus({ preventScroll: true }), 30);
   }
 
   hide() {
@@ -92,8 +131,111 @@ export class MenuUI {
 
   drawFx(ts) {
     const theme = this.app.theme;
-    this.stars.draw(ts, this.app.reduceMotion, theme.menu);
-    this.lane.draw(ts, theme);
+    const calm = this.app.reduceMotion;
+    this.stars.draw(ts, calm, theme.menu);
+    // Reduce motion: the chase scene stays frozen on one frame (Pac-Man mid-lane, ghosts behind)
+    this.lane.draw(calm ? LANE_STILL_MS : ts, theme);
+    if (this.view === 'setup') this.drawPreview(calm ? 0 : ts);
+  }
+
+  /** Lives (dots) and ghost speed (bars) under each difficulty name. Built once: the values never change. */
+  buildDiffMeta() {
+    for (const id of DIFF_IDS) {
+      const d = DIFFICULTIES[id];
+      const meta = this.$('diffPicker').querySelector(`[data-diff="${id}"] .diff-meta`);
+      meta.textContent = '';
+      const lives = document.createElement('span');
+      lives.className = 'pips';
+      for (let i = 0; i < d.lives; i++) lives.appendChild(document.createElement('i'));
+      const bars = document.createElement('span');
+      bars.className = 'bars';
+      const on = speedBars(d.ghostSpeed);
+      for (let i = 1; i <= 4; i++) {
+        const b = document.createElement('i');
+        if (i <= on) b.className = 'on';
+        bars.appendChild(b);
+      }
+      meta.append(lives, bars);
+    }
+  }
+
+  /** Mini maze in the selected theme with the selected character, shown above the theme picker. */
+  drawPreview(ts) {
+    const cv = this.$('themePreview');
+    const w = cv.clientWidth || 360;
+    const h = cv.clientHeight || 88;
+    const ctx = hiDpiContext(cv, w, h);
+    const theme = this.app.theme;
+    const look = stageLook(theme, 0);
+    const style = theme.walls.style;
+    ctx.fillStyle = look.bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const wall = (x, y, ww, hh) => {
+      const r = style === 'block' || style === 'slab' ? 0 : Math.min(8, hh / 2);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, ww, hh, r);
+      else ctx.rect(x, y, ww, hh);
+      if (style === 'outline') {
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = look.wall;
+        ctx.stroke();
+      } else if (style === 'soft') {
+        ctx.fillStyle = look.wall;
+        ctx.fill();
+        ctx.fillStyle = look.core || shade(look.wall, 0.5);
+        ctx.fillRect(x + 6, y + hh / 2 - 1.5, ww - 12, 3);
+      } else if (style === 'slab') {
+        ctx.fillStyle = look.wall;
+        ctx.fill();
+        ctx.strokeStyle = look.bg;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 4, y + 4, ww - 8, hh - 8);
+      } else {
+        ctx.fillStyle = look.wall;
+        ctx.fill();
+        ctx.fillStyle = shade(look.wall, 0.45);
+        ctx.fillRect(x, y, ww, 2);
+      }
+    };
+    const rail = 14;
+    wall(4, 4, w - 8, rail);
+    wall(4, h - 4 - rail, w - 8, rail);
+
+    const y = h / 2;
+    const span = w + 80;
+    const pacX = ts ? ((ts * 0.06) % span) - 40 : w * 0.42;
+    const powerX = Math.round(w * 0.78);
+    for (let x = 20; x < w; x += 20) {
+      if (x > pacX && Math.abs(x - powerX) > 10) drawPellet(ctx, x, y, 2.4);
+    }
+    if (powerX > pacX) drawPowerPellet(ctx, powerX, y, 5.5);
+    const mouth = ts ? 0.12 + 0.16 * Math.abs(Math.sin(ts * 0.014)) : 0.22;
+    const scared = pacX > powerX;
+    GHOST_DEFS.slice(0, 2).forEach((g, i) => {
+      const gx = pacX - 40 - i * 28;
+      drawGhost(ctx, gx, y, 11, scared
+        ? { color: '#fff', state: 'scared', dx: 1, wave: ts * 0.012 + i }
+        : { color: theme.ghosts[g.name], dx: 1, wave: ts * 0.012 + i });
+    });
+    drawPacman(ctx, pacX, y, 12, { angle: 0, mouth, glow: scared });
+  }
+
+  /** Each character button shows that character in the current theme. */
+  drawCharacters() {
+    this.$('charPicker').querySelectorAll('[data-char]').forEach((btn) => {
+      const cv = btn.querySelector('canvas');
+      const ctx = hiDpiContext(cv, 34, 34);
+      ctx.clearRect(0, 0, 34, 34);
+      drawPacman(ctx, 17, 18, 12, { mouth: 0.22, as: btn.dataset.char });
+    });
+  }
+
+  /** Small bounce on the option just picked (CSS turns it off with reduce motion). */
+  pop(el) {
+    el.classList.remove('pop');
+    void el.offsetWidth;
+    el.classList.add('pop');
   }
 
   // ------------------------------------------------------------ dynamic text and state
@@ -102,28 +244,27 @@ export class MenuUI {
     const s = this.app.settings;
     setChecked(this.$('modePicker'), (r) => r.dataset.mode === s.mode);
     setChecked(this.$('diffPicker'), (r) => r.dataset.diff === s.difficulty);
-    setChecked(this.$('themePicker'), (r) => r.dataset.themeId === this.app.theme.id);
+    for (const id of ['themePicker', 'themePickerSettings']) {
+      setChecked(this.$(id), (r) => r.dataset.themeId === this.app.theme.id);
+    }
     setChecked(this.$('langPicker'), (r) => r.dataset.lang === s.lang);
     setChecked(this.$('dpadPicker'), (r) => r.dataset.dpad === s.dpad);
     this.root.querySelectorAll('.lang-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === s.lang)));
 
-    const hint = this.$('modeHint');
-    hint.dataset.i18n = `mode.${s.mode}.hint`;
-    hint.textContent = t(hint.dataset.i18n);
-    const d = DIFFICULTIES[s.difficulty];
-    this.$('diffHint').textContent = t(`diff.${d.id}.hint`, { lives: d.lives });
-    this.$('themeHint').textContent = t(`theme.${this.app.theme.id}.hint`);
-
-    const best = this.app.storage.best(s.mode, s.difficulty).score;
-    this.$('bestLine').textContent = t('menu.best', {
-      diff: t(`diff.${s.difficulty}`),
-      mode: t(`mode.${s.mode}`),
-      score: formatNumber(best)
-    });
+    this.refreshSetup();
 
     document.querySelectorAll('input[data-setting]').forEach((input) => {
       input.checked = !!s[input.dataset.setting];
     });
+    // iPhones (and some browsers) have no Vibration API: say so instead of a switch that does nothing
+    const haptic = document.querySelector('input[data-setting="haptics"]');
+    if (haptic && !this.app.haptics.supported) {
+      haptic.disabled = true;
+      haptic.checked = false;
+      const small = haptic.closest('.setting').querySelector('small');
+      small.dataset.i18n = 'settings.haptics.unsupported';
+      small.textContent = t(small.dataset.i18n);
+    }
     document.querySelectorAll('input[data-volume]').forEach((input) => {
       const v = s[input.dataset.volume];
       input.value = String(v);
@@ -135,6 +276,92 @@ export class MenuUI {
     if (this.$('howtoDialog').open) this.goToStep(this.step);
     if (this.$('scoresDialog').open) this.renderScores();
     this.updateStartButton();
+  }
+
+  /** Everything on the game-mode screen that depends on the current choices. */
+  refreshSetup() {
+    const s = this.app.settings;
+    const { storage } = this.app;
+    const theme = this.app.theme;
+    const d = difficultyFor(s);
+    const modeName = t(`mode.${s.mode}`);
+    const diffName = t(`diff.${d.id}`);
+
+    // Mode cards show the record for the chosen difficulty
+    this.$('modePicker').querySelectorAll('[data-best]').forEach((el) => {
+      const best = d.custom ? 0 : storage.best(el.dataset.best, d.id).score;
+      el.textContent = best ? t('mode.cardBest', { score: formatNumber(best) }) : t('mode.cardNoBest');
+      el.classList.toggle('has-record', best > 0);
+    });
+
+    // Difficulty: hint, and the custom sliders when "Custom" is picked
+    this.$('diffHint').textContent = d.custom
+      ? t('diff.custom.hint', { lives: d.lives, speed: d.speedPct })
+      : t(`diff.${d.id}.hint`, { lives: d.lives });
+    this.$('customPanel').hidden = !d.custom;
+    const custom = this.$('diffPicker').querySelector('[data-diff="custom"]');
+    custom.title = t('diff.custom.hint', { lives: s.customLives, speed: s.customSpeed });
+    for (const [id, value, text] of [
+      ['customLives', s.customLives, String(s.customLives)],
+      ['customSpeed', s.customSpeed, `${s.customSpeed}%`]
+    ]) {
+      const input = this.$(id);
+      input.value = String(value);
+      const pct = ((value - input.min) / (input.max - input.min)) * 100;
+      input.style.setProperty('--fill', `${pct}%`);
+      input.setAttribute('aria-valuetext', text);
+      this.$(`${id}Val`).textContent = text;
+    }
+
+    // Start stage (Endless only): stages not reached yet stay locked
+    const endless = s.mode === 'endless';
+    const maxStage = storage.maxStage();
+    const start = Math.min(s.startStage, maxStage);
+    this.$('stageField').hidden = !endless;
+    this.$('stagePicker').querySelectorAll('[data-stage]').forEach((btn) => {
+      const n = Number(btn.dataset.stage);
+      const locked = n > maxStage;
+      btn.disabled = locked;
+      btn.classList.toggle('locked', locked);
+      btn.style.setProperty('--stage', stageLook(theme, n - 1).wall);
+      const name = t(`phase.${PHASES[n - 1].id}.name`);
+      btn.setAttribute('aria-label', locked ? t('menu.stageLocked', { n }) : `${n} · ${name}`);
+      btn.title = btn.getAttribute('aria-label');
+    });
+    setChecked(this.$('stagePicker'), (r) => Number(r.dataset.stage) === start);
+    const stageName = t(`phase.${PHASES[start - 1].id}.name`);
+    this.$('stageHint').textContent = maxStage < PHASE_COUNT ? `${stageName} · ${t('menu.startStage.hint')}` : stageName;
+
+    // Character and theme previews
+    setChecked(this.$('charPicker'), (r) => r.dataset.char === s.character);
+    this.drawCharacters();
+    this.$('themeHint').textContent = t(`theme.${theme.id}.hint`);
+    this.$('themePreview').setAttribute('aria-label', t('menu.preview', { theme: t(`theme.${theme.id}`) }));
+    if (this.view === 'setup') this.drawPreview(0);
+
+    // Record line: trophy when there is one, an invitation when there is not
+    const bestLine = this.$('bestLine');
+    const best = d.custom ? 0 : storage.best(s.mode, d.id).score;
+    bestLine.textContent = d.custom
+      ? t('menu.bestCustom')
+      : best
+        ? `🏆 ${t('menu.best', { diff: diffName, mode: modeName, score: formatNumber(best) })}`
+        : t('menu.bestNone');
+    bestLine.classList.toggle('muted', !best);
+
+    // One-line summary right above PLAY
+    this.$('setupSummary').textContent = t('menu.summary', {
+      mode: modeName,
+      diff: diffName,
+      lives: d.lives === 1 ? t('diff.life') : t('diff.lives', { n: d.lives }),
+      char: t(`char.${s.character}`),
+      theme: t(`theme.${theme.id}`)
+    });
+
+    // Home: "Play again" with the last setup, once at least one game was played
+    const quick = this.$('btnQuickPlay');
+    quick.hidden = storage.stats().gamesPlayed === 0;
+    this.$('quickPlayText').textContent = `${modeName} · ${diffName}`;
   }
 
   updateStartButton() {
@@ -152,25 +379,51 @@ export class MenuUI {
       sound.click();
       this.play();
     });
+    $('btnGameMode').addEventListener('click', () => {
+      sound.init();
+      sound.click();
+      this.showView('setup');
+    });
+    $('btnSetupBack').addEventListener('click', () => {
+      sound.init();
+      sound.click();
+      this.showView('home');
+    });
     $('btnHowTo').addEventListener('click', () => this.openHowTo());
     $('btnScores').addEventListener('click', () => this.openScores());
     $('btnSettings').addEventListener('click', () => this.openSettings());
 
-    bindRadioGroup($('modePicker'), (btn) => {
+    $('btnQuickPlay').addEventListener('click', () => {
       sound.init();
       sound.click();
-      this.app.update({ mode: btn.dataset.mode });
+      this.play();
     });
+
+    // Game-mode pickers: each choice has its own sound and a small bounce
+    const pick = (btn, patch, step, harsh = false) => {
+      sound.init();
+      sound.select(step, harsh);
+      this.app.update(patch);
+      this.pop(btn);
+    };
+    bindRadioGroup($('modePicker'), (btn) => pick(btn, { mode: btn.dataset.mode }, btn.dataset.mode === 'endless' ? 3 : 1));
     bindRadioGroup($('diffPicker'), (btn) => {
-      sound.init();
-      sound.click();
-      this.app.update({ difficulty: btn.dataset.diff });
+      const id = btn.dataset.diff;
+      pick(btn, { difficulty: id }, id === 'custom' ? 2 : DIFF_IDS.indexOf(id), id === 'hardcore');
+      this.app.haptics.play(id === 'hardcore' ? [30, 30, 60] : 12);
     });
-    bindRadioGroup($('themePicker'), (btn) => {
-      sound.init();
-      sound.click();
-      this.app.update({ theme: btn.dataset.themeId });
-    });
+    bindRadioGroup($('stagePicker'), (btn) => pick(btn, { startStage: Number(btn.dataset.stage) }, Number(btn.dataset.stage) - 1));
+    bindRadioGroup($('charPicker'), (btn) => pick(btn, { character: btn.dataset.char }, [...btn.parentNode.children].indexOf(btn)));
+    for (const id of ['customLives', 'customSpeed']) {
+      $(id).addEventListener('input', () => {
+        sound.init();
+        sound.select(id === 'customLives' ? Number($(id).value) - 1 : (Number($(id).value) - 70) / 20);
+        this.app.update({ [id]: Number($(id).value) });
+      });
+    }
+    for (const id of ['themePicker', 'themePickerSettings']) {
+      bindRadioGroup($(id), (btn) => pick(btn, { theme: btn.dataset.themeId }, [...btn.parentNode.children].indexOf(btn)));
+    }
     bindRadioGroup($('langPicker'), (btn) => this.setLanguage(btn.dataset.lang));
     bindRadioGroup($('dpadPicker'), (btn) => this.app.update({ dpad: btn.dataset.dpad }));
     this.root.querySelectorAll('.lang-btn').forEach((b) => b.addEventListener('click', () => this.setLanguage(b.dataset.lang)));
@@ -244,17 +497,26 @@ export class MenuUI {
 
     // Keyboard navigation between menu rows (Up/Down); Left/Right stays inside each row
     this.root.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && this.view === 'setup') {
+        e.preventDefault();
+        this.showView('home');
+        return;
+      }
       if (e.code !== 'ArrowDown' && e.code !== 'ArrowUp') return;
-      const rows = [
-        $('btnPlay'),
-        $('modePicker').querySelector('[aria-checked="true"]'),
-        $('diffPicker').querySelector('[aria-checked="true"]'),
-        $('themePicker').querySelector('[aria-checked="true"]'),
-        $('btnHowTo'),
-        $('btnScores'),
-        $('btnSettings'),
-        $('btnInstall')
-      ].filter((el) => el && !el.hidden);
+      const rows = (this.view === 'setup'
+        ? [
+            $('btnSetupBack'),
+            $('modePicker').querySelector('[aria-checked="true"]'),
+            $('diffPicker').querySelector('[aria-checked="true"]'),
+            $('customLives'),
+            $('customSpeed'),
+            $('stagePicker').querySelector('[aria-checked="true"]'),
+            $('charPicker').querySelector('[aria-checked="true"]'),
+            $('themePicker').querySelector('[aria-checked="true"]'),
+            $('btnPlay')
+          ]
+        : [$('btnGameMode'), $('btnQuickPlay'), $('btnHowTo'), $('btnScores'), $('btnSettings'), $('btnInstall')]
+      ).filter((el) => el && !el.closest('[hidden]'));
       const i = rows.findIndex((el) => el === document.activeElement);
       if (i < 0) return;
       e.preventDefault();
@@ -383,7 +645,8 @@ export class MenuUI {
   /** The table opens on the mode and difficulty currently selected in the menu. */
   openScores() {
     this.boardMode = this.app.settings.mode;
-    this.boardDiff = this.app.settings.difficulty;
+    // Custom games have no table: open on Normal instead
+    this.boardDiff = DIFFICULTIES[this.app.settings.difficulty] ? this.app.settings.difficulty : 'normal';
     this.renderScores();
     this.$('scoresDialog').showModal();
   }
