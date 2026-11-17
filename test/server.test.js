@@ -40,6 +40,17 @@ test('serves the game page with security headers', async () => {
   assert.equal(res.headers['x-content-type-options'], 'nosniff');
 });
 
+test('the page carries the same CSP as the server, for hosts that cannot send headers (GitHub Pages)', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const meta = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+  assert.ok(meta, 'CSP meta tag present');
+  assert.ok(html.indexOf(meta[0]) < html.indexOf('<link'), 'CSP meta comes before any resource');
+  // frame-ancestors is ignored in a meta tag (header only), so it is the one expected difference
+  const fromServer = SECURITY_HEADERS['Content-Security-Policy'].split('; ').filter((d) => !d.startsWith('frame-ancestors'));
+  assert.deepEqual(meta[1].split('; '), fromServer);
+});
+
 test('serves modules, styles, fonts, icons and the manifest with the right types', async () => {
   const cases = [
     ['/src/main.js', /javascript/],

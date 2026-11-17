@@ -71,6 +71,20 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Absolute URLs of the files the game is made of. Only these are ever stored: caching any URL that
+// happens to be requested would let the cache grow without limit (every ?query is a new entry) and
+// keep responses that are not part of the game.
+const SHELL_URLS = new Set(APP_SHELL.map((p) => new URL(p, self.location).href));
+const INDEX_URL = new URL('index.html', self.location).href;
+
+/** The cache key for a request: same URL without ?query or #hash, so "./?utm=x" maps to "./". */
+function shellKey(request) {
+  const url = new URL(request.url);
+  url.search = '';
+  url.hash = '';
+  return url.href;
+}
+
 // Network first, cache as the offline fallback. Serving each file from the cache and refreshing it
 // in the background (stale-while-revalidate) mixed versions after an update: a new index.html with
 // an old ui.js or i18n.js, which showed raw "{mode}" placeholders. Online, every file is now current.
@@ -78,17 +92,20 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
+  const key = shellKey(request);
+  const isShell = SHELL_URLS.has(key);
+  const isPage = request.mode === 'navigate';
+  if (!isShell && !isPage) return; // not part of the game: let the browser handle it normally
+
   event.respondWith(
     caches.open(CACHE).then((cache) =>
       fetch(request, { cache: 'no-cache' })
         .then((response) => {
-          if (response.ok) cache.put(request, response.clone());
+          // Only complete, same-origin ("basic") answers for game files are kept
+          if (isShell && response.ok && response.type === 'basic') cache.put(key, response.clone());
           return response;
         })
-        .catch(async () => {
-          const cached = await cache.match(request, { ignoreSearch: true });
-          return cached || (request.mode === 'navigate' ? cache.match('index.html') : Response.error());
-        })
+        .catch(async () => (await cache.match(key)) || (isPage ? cache.match(INDEX_URL) : Response.error()))
     )
   );
 });

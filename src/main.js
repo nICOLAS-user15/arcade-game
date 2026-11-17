@@ -15,11 +15,14 @@ menu.show();
 game.updateSoundButton();
 new Intro(app).play();
 
-// Handy for debugging in the browser console
-globalThis.__pacman = { app, game, menu };
+const isLocalDev = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+// Console handle for debugging, only on the local dev server: on the published site it would
+// let anyone rewrite the score or the game state from the browser console.
+if (isLocalDev) globalThis.__pacman = { app, game, menu };
 
 // Offline support. Skipped on localhost so development is never served stale files.
-if ('serviceWorker' in navigator && !['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+if ('serviceWorker' in navigator && !isLocalDev) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
