@@ -71,21 +71,24 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Stale-while-revalidate: instant loads from cache, refreshed in the background for next time.
+// Network first, cache as the offline fallback. Serving each file from the cache and refreshing it
+// in the background (stale-while-revalidate) mixed versions after an update: a new index.html with
+// an old ui.js or i18n.js, which showed raw "{mode}" placeholders. Online, every file is now current.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(request, { ignoreSearch: true });
-      const network = fetch(request)
+    caches.open(CACHE).then((cache) =>
+      fetch(request, { cache: 'no-cache' })
         .then((response) => {
           if (response.ok) cache.put(request, response.clone());
           return response;
         })
-        .catch(() => cached || (request.mode === 'navigate' ? cache.match('index.html') : Response.error()));
-      return cached || network;
-    })
+        .catch(async () => {
+          const cached = await cache.match(request, { ignoreSearch: true });
+          return cached || (request.mode === 'navigate' ? cache.match('index.html') : Response.error());
+        })
+    )
   );
 });
