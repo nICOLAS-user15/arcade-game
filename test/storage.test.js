@@ -25,7 +25,7 @@ test('settings round-trip', () => {
 
 test('hand-edited or corrupt settings are sanitized', () => {
   const backend = new MemoryBackend();
-  backend.setItem('pacman_settings', JSON.stringify({ lang: 'xx', difficulty: 'nightmare', mode: 'zen', dpad: 'sideways', sfx: 'yes', theme: 'toString', haptics: false, leftHanded: true }));
+  backend.setItem('pacman_settings', JSON.stringify({ lang: 'xx', difficulty: 'nightmare', mode: 'zen', dpad: 'sideways', sfx: 'yes', theme: 'toString', music: false, leftHanded: true, haptics: true }));
   const s = new Storage(backend).loadSettings();
   assert.equal(s.lang, 'en');
   assert.equal(s.difficulty, 'normal');
@@ -33,14 +33,15 @@ test('hand-edited or corrupt settings are sanitized', () => {
   assert.equal(s.dpad, 'on');
   assert.equal(s.theme, 'classic', 'unknown theme falls back to the default');
   assert.equal(s.sfx, true, 'wrong type falls back to the default');
-  assert.equal(s.haptics, false, 'valid values survive');
+  assert.equal(s.music, false, 'valid values survive');
+  assert.equal('haptics' in s, false, 'the removed vibration setting is dropped');
   assert.equal('leftHanded' in s, false, 'removed settings are dropped');
 
   backend.setItem('pacman_settings', '{not json');
   assert.deepEqual(new Storage(backend).loadSettings(), defaultSettings());
 });
 
-test('the D-pad is on by default; "auto" and pre-v2 saves become "on", a v2 "off" is kept', () => {
+test('the D-pad is on by default and older saves get it back on once', () => {
   assert.equal(defaultSettings().dpad, 'on');
   const backend = new MemoryBackend();
   backend.setItem('pacman_settings', JSON.stringify({ dpad: 'off', theme: 'modern', lang: 'pt' }));
@@ -54,8 +55,10 @@ test('the D-pad is on by default; "auto" and pre-v2 saves become "on", a v2 "off
 
   backend.setItem('pacman_settings', JSON.stringify({ version: 2, dpad: 'auto' }));
   assert.equal(new Storage(backend).loadSettings().dpad, 'on', '"auto" no longer exists');
-  backend.setItem('pacman_settings', JSON.stringify({ version: 2, dpad: 'off' }));
-  assert.equal(new Storage(backend).loadSettings().dpad, 'off', 'an explicit "off" is respected');
+  backend.setItem('pacman_settings', JSON.stringify({ version: 3, dpad: 'off' }));
+  assert.equal(new Storage(backend).loadSettings().dpad, 'on', 'v4 switches it back on once for everyone');
+  backend.setItem('pacman_settings', JSON.stringify({ version: 4, dpad: 'off' }));
+  assert.equal(new Storage(backend).loadSettings().dpad, 'off', 'an "Off" chosen after that is respected');
 });
 
 test('personal bests are tracked per mode and difficulty', () => {

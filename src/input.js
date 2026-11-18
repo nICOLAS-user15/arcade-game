@@ -4,7 +4,6 @@
  */
 
 import { DIRS } from './config.js';
-import { HAPTICS } from './audio.js';
 import { t } from './i18n.js';
 
 const KEY_DIRS = {
@@ -195,7 +194,6 @@ export class Input {
   bindDpad() {
     const steer = (btn) => {
       this.app.sound.init();
-      this.app.haptics.play(HAPTICS.tap);
       this.game.steer(DIRS[btn.dataset.dir]);
     };
     this.game.$('dpad').querySelectorAll('[data-dir]').forEach((btn) => {

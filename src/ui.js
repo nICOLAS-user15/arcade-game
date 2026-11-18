@@ -4,7 +4,7 @@
  */
 
 import { DIFFICULTIES, GHOST_DEFS, PHASES, PHASE_COUNT, difficultyFor } from './config.js';
-import { t, formatNumber } from './i18n.js';
+import { t, formatNumber, LANGUAGES } from './i18n.js';
 import { BOARD_SIZE } from './storage.js';
 import { Starfield, AttractLane } from './menu-fx.js';
 import { drawPacman, drawGhost, drawPowerPellet, drawPellet, drawEmoji } from './sprites.js';
@@ -239,10 +239,10 @@ export class MenuUI {
   }
 
   /**
-   * Changes the theme with a short "arcade monitor changing channel" effect: the old picture
-   * collapses into a bright line and the new one opens out of it (CSS in style.css, driven by the
-   * View Transitions API). Without that API only the "switch on" half plays; reduced motion
-   * switches instantly.
+   * Changes the theme with a short, discreet effect in the style of the theme being picked
+   * (Classic: a monitor-beam sweep, Retro: the same in 8-bit steps, Pastel: a soft dissolve,
+   * Minimal: a hard cut). The effects live in style.css under html[data-vt]; they run through the
+   * View Transitions API, with a plain short fade where it is missing. Reduced motion switches instantly.
    */
   switchTheme(id, origin) {
     const apply = () => {
@@ -253,17 +253,17 @@ export class MenuUI {
       apply();
       return;
     }
+    const root = document.documentElement;
     if (typeof document.startViewTransition === 'function') {
-      document.startViewTransition(apply).ready.catch(() => {});
+      root.dataset.vt = id;
+      const transition = document.startViewTransition(apply);
+      transition.ready.catch(() => {});
+      transition.finished.finally(() => delete root.dataset.vt).catch(() => {});
       return;
     }
     apply();
     for (const el of document.querySelectorAll('.menu-card, dialog[open]')) {
-      el.animate?.([
-        { transform: 'scale(0.5, 0.01)', filter: 'brightness(4)' },
-        { transform: 'scaleY(0.04)', filter: 'brightness(2.4)', offset: 0.35 },
-        { transform: 'none', filter: 'none' }
-      ], { duration: 260, easing: 'cubic-bezier(0.1, 0.55, 0.35, 1)' });
+      el.animate?.([{ opacity: 0.6 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
     }
   }
 
@@ -288,22 +288,14 @@ export class MenuUI {
     }
     setChecked(this.$('langPicker'), (r) => r.dataset.lang === s.lang);
     setChecked(this.$('dpadPicker'), (r) => r.dataset.dpad === s.dpad);
-    this.root.querySelectorAll('.lang-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === s.lang)));
+    // The collapsed "Languages" section shows the current one next to its title
+    this.$('langCurrent').textContent = LANGUAGES[s.lang]?.label ?? '';
 
     this.refreshSetup();
 
     document.querySelectorAll('input[data-setting]').forEach((input) => {
       input.checked = !!s[input.dataset.setting];
     });
-    // iPhones (and some browsers) have no Vibration API: say so instead of a switch that does nothing
-    const haptic = document.querySelector('input[data-setting="haptics"]');
-    if (haptic && !this.app.haptics.supported) {
-      haptic.disabled = true;
-      haptic.checked = false;
-      const small = haptic.closest('.setting').querySelector('small');
-      small.dataset.i18n = 'settings.haptics.unsupported';
-      small.textContent = t(small.dataset.i18n);
-    }
     document.querySelectorAll('input[data-volume]').forEach((input) => {
       const v = s[input.dataset.volume];
       input.value = String(v);
@@ -449,7 +441,6 @@ export class MenuUI {
     bindRadioGroup($('diffPicker'), (btn) => {
       const id = btn.dataset.diff;
       pick(btn, { difficulty: id }, id === 'custom' ? 2 : DIFF_IDS.indexOf(id), id === 'hardcore');
-      this.app.haptics.play(id === 'hardcore' ? [30, 30, 60] : 12);
     });
     bindRadioGroup($('stagePicker'), (btn) => pick(btn, { startStage: Number(btn.dataset.stage) }, Number(btn.dataset.stage) - 1));
     bindRadioGroup($('charPicker'), (btn) => pick(btn, { character: btn.dataset.char }, [...btn.parentNode.children].indexOf(btn)));
@@ -469,7 +460,12 @@ export class MenuUI {
     }
     bindRadioGroup($('langPicker'), (btn) => this.setLanguage(btn.dataset.lang));
     bindRadioGroup($('dpadPicker'), (btn) => this.app.update({ dpad: btn.dataset.dpad }));
-    this.root.querySelectorAll('.lang-btn').forEach((b) => b.addEventListener('click', () => this.setLanguage(b.dataset.lang)));
+    // Collapsible "Languages" section: soft cue when it opens or closes
+    $('langGroup').addEventListener('toggle', () => {
+      sound.init();
+      if ($('langGroup').open) sound.open();
+      else sound.close();
+    });
 
     document.querySelectorAll('input[data-setting]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -479,7 +475,6 @@ export class MenuUI {
           sound.init();
           sound.click();
         }
-        if (input.dataset.setting === 'haptics' && input.checked) this.app.haptics.play(30);
         if (input.dataset.setting === 'reduceMotion' && !this.root.hidden) this.startFx();
       });
     });

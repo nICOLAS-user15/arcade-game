@@ -167,25 +167,13 @@ kbd {
 .menu {
   position: relative; min-height: var(--vh); height: var(--vh);
   display: flex; flex-direction: column; align-items: center;
-  padding: calc(var(--safe-t) + 64px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 16px) calc(var(--safe-l) + 16px);
+  padding: calc(var(--safe-t) + 28px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 16px) calc(var(--safe-l) + 16px);
   overflow-y: auto;
 }
 
 /* Fixed to the viewport: the menu scrolls (the game-mode screen is taller than a phone) and the
    background must keep covering the whole screen instead of scrolling away with the first page */
 .menu-bg { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-
-.menu-lang {
-  position: absolute; top: calc(var(--safe-t) + 12px); right: calc(var(--safe-r) + 12px);
-  display: flex; gap: 4px; padding: 4px; z-index: 2;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-}
-.lang-btn {
-  min-width: 44px; min-height: 36px; padding: 0 10px;
-  font-weight: 700; letter-spacing: 1px; color: var(--muted);
-  background: transparent; border: 0; border-radius: 8px;
-}
-.lang-btn[aria-pressed='true'] { background: var(--blue); color: var(--accent-text); }
 
 .menu-card {
   position: relative; z-index: 1;
@@ -314,7 +302,8 @@ kbd {
 
 /* Difficulty: name + lives (dots) + ghost speed (bars); Custom spans the full row */
 .segmented.diff-grid { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.diff-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; font-size: 16px; min-height: 58px; }
+.diff-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; font-size: clamp(13px, 4vw, 16px); min-height: 58px; }
+.diff-grid button > span:first-child { max-width: 100%; overflow-wrap: anywhere; line-height: 1.05; } /* long names (Difficile) shrink, then wrap, instead of overflowing */
 .diff-grid .diff-custom { grid-column: 1 / -1; flex-direction: row; gap: 8px; min-height: 40px; font-size: 15px; }
 .diff-custom svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .diff-meta { display: flex; align-items: center; gap: 6px; }
@@ -579,6 +568,31 @@ html[data-dpad='on'] .key-hints { display: none; }
 .setting-text small { font-size: 14px; color: var(--muted); line-height: 1.2; }
 .setting .segmented { flex: none; min-width: 150px; }
 .setting .segmented button { font-size: 15px; }
+/* Collapsible section (Languages): the arrow next to the title opens or closes it */
+.setting-group { border-bottom: 1px solid var(--line); }
+.setting-group > summary {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 0;
+  list-style: none; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.setting-group > summary::-webkit-details-marker { display: none; }
+.setting-group > summary b { font-size: 18px; }
+.setting-group > summary:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 8px; }
+.setting-group .chevron {
+  flex: none; width: 20px; height: 20px; color: var(--muted);
+  fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 0.2s ease-out;
+}
+.setting-group[open] .chevron { transform: rotate(90deg); color: var(--yellow); }
+.group-value { margin-left: auto; font-size: 15px; color: var(--muted); }
+.lang-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; padding: 0 0 14px; }
+.lang-list button {
+  min-height: 44px; padding: 0 14px; text-align: left;
+  font-weight: 700; font-size: 16px; color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+}
+.lang-list button:hover { color: var(--text); }
+.lang-list button[aria-checked='true'] { color: var(--accent-text); background: var(--blue); border-color: transparent; }
 .setting.stacked { flex-direction: column; align-items: stretch; gap: 10px; text-align: left; }
 .setting.stacked .segmented { min-width: 0; }
 .setting .segmented.themes button { font-size: 14px; }
@@ -649,23 +663,22 @@ input:disabled + .switch { opacity: 0.35; }
 .credits-foot { font-size: 14px; color: var(--muted); line-height: 1.3; }
 html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-radius: 0; }
 
-/* Theme switch: like an arcade monitor changing channel, the old picture collapses into a bright
-   line and the new one opens out of it (View Transitions API, see MenuUI.switchTheme).
-   Browsers without it play only the "switch on" half on the menu card and open dialogs. */
-::view-transition { background: #000; }
-::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; transform-origin: 50% 50%; }
-::view-transition-old(root) { animation: crt-off 0.2s cubic-bezier(0.55, 0, 0.9, 0.45) both; }
-::view-transition-new(root) { animation: crt-on 0.26s 0.2s cubic-bezier(0.1, 0.55, 0.35, 1) both; }
-@keyframes crt-off {
-  0% { transform: none; filter: none; }
-  65% { transform: scaleY(0.03); filter: brightness(2.6); }
-  100% { transform: scale(0.5, 0.003); filter: brightness(5); }
-}
-@keyframes crt-on {
-  0% { transform: scale(0.5, 0.003); filter: brightness(5); }
-  35% { transform: scaleY(0.03); filter: brightness(2.6); }
-  100% { transform: none; filter: none; }
-}
+/* Theme switch (View Transitions API, see MenuUI.switchTheme). Discreet on purpose: the old
+   picture stays still and only the new one comes in, each theme with an effect in its own style. */
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) { mix-blend-mode: normal; animation: vt-fade 0.25s ease-out both; }
+/* Classic: drawn from top to bottom, like the beam of an arcade monitor */
+html[data-vt='classic']::view-transition-new(root) { animation: vt-scan 0.3s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+/* Retro: the same sweep in chunky 8-bit steps */
+html[data-vt='retro']::view-transition-new(root) { animation: vt-scan 0.28s steps(8, end) both; }
+/* Pastel: a soft, dreamy dissolve */
+html[data-vt='pastel']::view-transition-new(root) { animation: vt-dream 0.32s ease-out both; }
+/* Minimal: a hard, straight cut from left to right */
+html[data-vt='minimal']::view-transition-new(root) { animation: vt-cut 0.22s linear both; }
+@keyframes vt-fade { from { opacity: 0; } }
+@keyframes vt-scan { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes vt-dream { from { opacity: 0; filter: blur(6px); transform: scale(0.985); } }
+@keyframes vt-cut { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 
 .install-steps { padding: 18px 20px 22px 44px; list-style: decimal; display: flex; flex-direction: column; gap: 12px; font-size: 18px; }
 .install-btn { margin-top: 4px; }
@@ -677,7 +690,6 @@ html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-
   .icon-btn { width: 48px; height: 48px; }
   .btn-ghost { min-height: 48px; }
   .segmented button { min-height: 48px; }
-  .lang-btn { min-height: 44px; }
   .menu-foot { display: none; } /* keyboard hints are noise on a phone */
   .segmented.themes button { min-height: 56px; }
 }
@@ -711,7 +723,7 @@ html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-
   html[data-theme='pastel'] .lane { padding: 3px 6px; }
 }
 @media (max-height: 700px) {
-  .menu { padding-top: calc(var(--safe-t) + 60px); padding-bottom: calc(var(--safe-b) + 10px); }
+  .menu { padding-top: calc(var(--safe-t) + 14px); padding-bottom: calc(var(--safe-b) + 10px); }
   .menu-foot { display: none; }
   .lane { max-height: 44px; }
   .tagline { display: none; }
@@ -728,9 +740,7 @@ html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-
   .lane { max-height: 38px; }
 }
 @media (max-height: 480px) {
-  .menu { padding-top: calc(var(--safe-t) + 46px); padding-bottom: calc(var(--safe-b) + 6px); }
-  .menu-lang { top: calc(var(--safe-t) + 6px); padding: 3px; }
-  .lang-btn { min-height: 30px; }
+  .menu { padding-top: calc(var(--safe-t) + 10px); padding-bottom: calc(var(--safe-b) + 6px); }
   .menu-card { padding: 10px 16px; gap: 18px; }
   .menu-hero, .menu-options { gap: 8px; }
   .field { gap: 4px; }
@@ -743,8 +753,7 @@ html:is([data-theme='retro'], [data-theme='minimal']) .credits-links a { border-
   .menu .btn-primary { min-height: 48px; }
 }
 @media (max-height: 400px) {
-  .menu { padding-top: calc(var(--safe-t) + 42px); }
-  .menu-lang { top: calc(var(--safe-t) + 4px); }
+  .menu { padding-top: calc(var(--safe-t) + 8px); }
   .menu-links .btn-ghost { min-height: 44px; padding: 4px; }
   .menu-hero, .menu-options { gap: 6px; }
   .best-line { font-size: 14px; }
@@ -819,7 +828,7 @@ html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range'
 html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-webkit-slider-thumb { border-radius: 0; }
 html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-moz-range-track,
 html:is([data-theme='retro'], [data-theme='minimal']) .volume input[type='range']::-moz-range-thumb { border-radius: 0; }
-html:is([data-theme='retro'], [data-theme='minimal']) :is(.menu-card, .menu-lang, .lang-btn, .stat, .stage-badge, .board, .lives, .icon-btn, .btn-ghost,
+html:is([data-theme='retro'], [data-theme='minimal']) :is(.menu-card, .setting-group, .lang-list button, .stat, .stage-badge, .board, .lives, .icon-btn, .btn-ghost,
   .btn-primary, .segmented, .segmented button, .modal, .dialog, .dpad-btn, .features li, .bonus-line, .control-card,
   .sprite-card, .ghost-list li, .tips li, .toast, .coach, .switch, .switch::after, kbd,
   .mode-card, .theme-preview, .custom-panel) { border-radius: 0; }
@@ -867,8 +876,6 @@ html[data-theme='pastel'] .logo-pac { --sticker: #8e3b5e; color: #ff8fb1; }
 html[data-theme='pastel'] .logo-man { --sticker: #4b3d8c; color: #a8bcff; animation: none; }
 html[data-theme='pastel'] .lane { padding: 6px 8px; background: var(--screen); border-radius: 20px; box-shadow: inset 0 0 0 2px rgba(255, 186, 214, 0.3); }
 html[data-theme='pastel'] .btn-primary { border-radius: 999px; }
-html[data-theme='pastel'] .menu-lang { border-radius: 999px; }
-html[data-theme='pastel'] .lang-btn { border-radius: 999px; }
 html[data-theme='pastel'] .segmented { border-radius: 999px; }
 html[data-theme='pastel'] .segmented button { border-radius: 999px; }
 html[data-theme='pastel'] :is(.segmented.themes, .segmented.diff-grid, .segmented.chars) { border-radius: 26px; }
@@ -979,7 +986,7 @@ html[data-theme='minimal'] input:checked + .switch::after { background: #000000;
 .menu.intro-reveal .menu-setup > * { animation-delay: 0s; }
 .menu.intro-reveal .menu-setup > :nth-child(2) { animation-delay: 40ms; }
 .menu.intro-reveal .menu-setup > :nth-child(3) { animation-delay: 80ms; }
-.menu.intro-reveal :is(.menu-lang, .menu-foot) { animation: rise 0.5s 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.menu.intro-reveal .menu-foot { animation: rise 0.5s 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* ------------------------------------------------------------- 10. Motion */
 html[data-motion='reduced'] *,
@@ -990,3 +997,11 @@ html[data-motion='reduced'] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
 }
+
+/* Japanese: the game's fonts are Latin-only, so Japanese text uses the system's Japanese fonts
+   (nothing is downloaded) right after each theme's own font */
+html:lang(ja) { --jp: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', Meiryo, 'Noto Sans JP'; }
+html:lang(ja)[data-theme='classic'] { --font-pixel: 'Press Start 2P', var(--jp), monospace; --font-ui: 'Rajdhani', var(--jp), sans-serif; }
+html:lang(ja)[data-theme='retro'] { --font-pixel: 'Silkscreen', var(--jp), monospace; --font-ui: 'VT323', var(--jp), monospace; }
+html:lang(ja)[data-theme='pastel'] { --font-pixel: 'Fredoka', var(--jp), sans-serif; --font-ui: 'Nunito', var(--jp), sans-serif; }
+html:lang(ja)[data-theme='minimal'] { --font-pixel: 'Space Mono', var(--jp), monospace; --font-ui: 'Space Grotesk', var(--jp), sans-serif; }

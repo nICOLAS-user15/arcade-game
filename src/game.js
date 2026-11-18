@@ -15,7 +15,6 @@ import { Pacman, Ghost, tileOf } from './entities.js';
 import { Cutscene } from './cutscene.js';
 import { drawPowerPellet, drawPortal, drawEmoji, pelletPath, getSkin } from './sprites.js';
 import { stageLook, canvasFont, shade } from './themes.js';
-import { HAPTICS } from './audio.js';
 import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
 import { t, formatNumber } from './i18n.js';
@@ -274,7 +273,6 @@ export class Game {
       this.state = 'PLAYING';
       this.goTimer = GO_TIME;
       this.app.sound.countdown(true);
-      this.app.haptics.play(HAPTICS.tap);
     }
   }
 
@@ -490,7 +488,6 @@ export class Game {
     } else {
       this.addScore(SCORE.POWER);
       this.app.sound.power();
-      this.app.haptics.play(HAPTICS.power);
       this.app.announce(t('sr.power'));
       this.ghostCombo = 0;
       this.ghosts.forEach((g) => g.frighten());
@@ -532,7 +529,6 @@ export class Game {
     const pts = this.params.fruitPoints;
     this.addScore(pts);
     this.app.sound.fruit();
-    this.app.haptics.play(HAPTICS.fruit);
     this.floaters.push({ text: `+${pts}`, x: f.x, y: f.y, life: 1.2, color: '#ffffff' });
   }
 
@@ -543,7 +539,6 @@ export class Game {
     const pts = SCORE.GHOST_BASE * 2 ** (this.ghostCombo - 1);
     this.addScore(pts);
     this.app.sound.eatGhost(this.ghostCombo);
-    this.app.haptics.play(HAPTICS.ghost);
     this.floaters.push({ text: `+${pts}`, x: ghost.x, y: ghost.y, life: 1, color: '#67e8f9' });
     this.burst(ghost.x, ghost.y, ghost.color, 10);
     this.hitStop = this.app.reduceMotion ? 0 : HIT_STOP;
@@ -557,7 +552,6 @@ export class Game {
     this.app.sound.stopMusic();
     this.app.sound.setMusicTempo(1); // the final-rush speed-up must not reach the game-over jingle
     this.app.sound.death();
-    this.app.haptics.play(HAPTICS.death);
   }
 
   loseLife() {
@@ -596,7 +590,6 @@ export class Game {
     this.lives++;
     this.updateLives();
     this.app.sound.extraLife();
-    this.app.haptics.play(HAPTICS.extraLife);
     this.app.toast(t('toast.extraLife'), 'good');
     this.app.announce(t('sr.extraLife'));
   }
@@ -618,7 +611,6 @@ export class Game {
     this.stageTimer = this.endless ? ENDLESS_CLEAR_FLASH : 1.5;
     this.app.sound.setMusicTempo(1);
     this.app.sound.playJingle('stageClear');
-    this.app.haptics.play(HAPTICS.stageClear);
     this.commitScore();
   }
 
@@ -670,7 +662,6 @@ export class Game {
       onBonus: (pts) => {
         this.addScore(pts);
         this.app.sound.bonusCoin();
-        this.app.haptics.play(HAPTICS.tap);
       },
       onChomp: () => this.app.sound.bigChomp()
     });

@@ -62,6 +62,12 @@ test('switching language changes output and unsupported codes fall back to Engli
   assert.equal(getLang(), 'en');
   assert.equal(t('menu.play'), 'PLAY');
   assert.ok(isSupported('pt') && !isSupported('klingon'));
+  for (const [code, play] of [['fr', 'JOUER'], ['es', 'JUGAR'], ['ja', 'プレイ']]) {
+    setLang(code);
+    assert.equal(t('menu.play'), play, code);
+  }
+  setLang('en');
+  assert.deepEqual(Object.keys(LANGUAGES), ['en', 'pt', 'fr', 'es', 'ja']);
 });
 
 test('numbers are formatted for the active locale', () => {
@@ -69,5 +75,11 @@ test('numbers are formatted for the active locale', () => {
   assert.equal(formatNumber(12345), '12,345');
   setLang('pt');
   assert.equal(formatNumber(12345), '12.345');
+  setLang('es');
+  assert.equal(formatNumber(1234567), '1.234.567');
+  setLang('fr');
+  assert.match(formatNumber(12345), /^12\s345$/u, 'French groups thousands with a (narrow) space');
+  setLang('ja');
+  assert.equal(formatNumber(12345), '12,345');
   setLang('en');
 });

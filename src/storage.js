@@ -15,8 +15,9 @@ export const DPAD_MODES = ['on', 'off'];
 /**
  * Bumped when a saved setting must be reset once.
  * v2: D-pad back to "auto" after the detection fix. v3: "auto" removed, the D-pad is on by default.
+ * v4: the D-pad is switched back on once for everyone; vibration removed.
  */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 export function defaultSettings(prefersReducedMotion = false) {
   return {
@@ -26,7 +27,6 @@ export function defaultSettings(prefersReducedMotion = false) {
     music: true,
     sfxVolume: 100,
     musicVolume: 100,
-    haptics: true,
     reduceMotion: prefersReducedMotion,
     dpad: 'on',
     theme: DEFAULT_THEME,
@@ -137,8 +137,8 @@ export class Storage {
       }
     }
     if (saved?.version !== SETTINGS_VERSION) {
-      // An explicit "off" chosen under v2 is respected; "auto" and older saves become "on"
-      if (!(saved?.version === 2 && s.dpad === 'off')) s.dpad = 'on';
+      // On by default: older saves get the D-pad back once; a later "Off" is respected
+      s.dpad = 'on';
       s.version = SETTINGS_VERSION;
     }
     // Sanitize anything that could have been edited by hand

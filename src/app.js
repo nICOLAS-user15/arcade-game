@@ -1,13 +1,16 @@
 /**
- * Shared services for the menu and the game: persisted settings, audio, haptics,
+ * Shared services for the menu and the game: persisted settings, audio,
  * toasts, screen-reader announcements and the layout flags derived from settings.
  */
 
 import { Storage } from './storage.js';
-import { SoundController, Haptics } from './audio.js';
+import { SoundController } from './audio.js';
 import { setLang, onLangChange } from './i18n.js';
 import { getTheme, canvasFont } from './themes.js';
 import { setSkin, setCharacter } from './sprites.js';
+
+/** Choices that reset to these values every time the game is opened. */
+export const SESSION_DEFAULTS = Object.freeze({ mode: 'campaign', difficulty: 'normal' });
 
 export class App {
   constructor() {
@@ -16,8 +19,10 @@ export class App {
 
     this.storage = new Storage(undefined, { prefersReducedMotion: this.reducedMotionQuery.matches });
     this.settings = this.storage.loadSettings();
+    // Every launch starts on Campaign + Normal; a different choice lasts until the game is closed.
+    // Theme, character, language, sound and the rest stay as the player left them.
+    Object.assign(this.settings, SESSION_DEFAULTS);
     this.sound = new SoundController();
-    this.haptics = new Haptics();
     this.listeners = new Set();
 
     // Browsers only allow audio after a user gesture: unlock it on the first one, so the menu music starts
@@ -63,7 +68,6 @@ export class App {
     this.sound.setEnabled(s.sfx);
     this.sound.setMusicEnabled(s.music);
     this.sound.setVolumes(s.musicVolume / 100, s.sfxVolume / 100);
-    this.haptics.setEnabled(s.haptics);
     const root = document.documentElement;
     root.dataset.dpad = this.dpadVisible ? 'on' : 'off';
     root.dataset.motion = s.reduceMotion ? 'reduced' : 'full';

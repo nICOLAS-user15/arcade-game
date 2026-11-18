@@ -6,6 +6,8 @@
  * DOM-free so it can be unit-tested in Node.
  */
 
+import { getLang } from './i18n.js';
+
 export const DEFAULT_THEME = 'classic';
 export const THEME_IDS = ['classic', 'retro', 'pastel', 'minimal'];
 
@@ -144,8 +146,12 @@ export function stageLook(theme, stageIndex) {
 /** Canvas font string for a theme, sized so every font reads about as large. */
 export function canvasFont(theme, px) {
   const f = theme.font;
-  return `${f.weight}${Math.round(px * f.scale)}px ${f.family}`;
+  // The theme fonts are Latin-only: Japanese text falls back to the system's Japanese fonts
+  const family = getLang() === 'ja' ? f.family.replace(/,\s*([\w-]+)$/, `, ${JP_FONTS}, $1`) : f.family;
+  return `${f.weight}${Math.round(px * f.scale)}px ${family}`;
 }
+
+const JP_FONTS = '"Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP"';
 
 export function rgba(hex, alpha) {
   const n = parseInt(hex.slice(1), 16);

@@ -1,6 +1,5 @@
 /**
- * Sound effects and music, synthesized with the Web Audio API (no audio files), and
- * haptic feedback through the Vibration API where available.
+ * Sound effects and music, synthesized with the Web Audio API (no audio files).
  *
  * Routing: effects -> sfx bus ------------------------\
  *          music   -> music bus -> pause filter --------> master -> speakers
@@ -318,42 +317,5 @@ export class SoundController {
 
   close() {
     this.tone({ type: 'triangle', freq: 880, freqEnd: 520, dur: 0.09, vol: 0.06 });
-  }
-}
-
-/**
- * Vibration patterns, in milliseconds. Many Android motors ignore pulses shorter
- * than ~15 ms, so even the lightest tap stays above that.
- */
-export const HAPTICS = Object.freeze({
-  tap: 18,
-  power: 40,
-  ghost: [40, 30, 60],
-  fruit: 30,
-  death: [120, 60, 220],
-  stageClear: [50, 50, 50, 50, 100],
-  extraLife: [40, 40, 40, 40, 90]
-});
-
-export class Haptics {
-  constructor() {
-    this.enabled = true;
-  }
-
-  get supported() {
-    return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-  }
-
-  setEnabled(on) {
-    this.enabled = on;
-  }
-
-  play(pattern) {
-    if (!this.enabled || !this.supported) return;
-    try {
-      navigator.vibrate(pattern);
-    } catch {
-      /* ignore */
-    }
   }
 }
