@@ -197,8 +197,8 @@ export class Input {
       const threshold = Math.max(16, Math.min(30, el.clientWidth * 0.07));
       if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
       const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? DIRS.RIGHT : DIRS.LEFT) : (dy > 0 ? DIRS.DOWN : DIRS.UP);
-      this.game.steer(dir);
-      s.dir = dir; // counts as held until the finger lifts
+      this.game.steer(dir, true);
+      s.dir = dir;
       // Re-anchor so several turns can be chained in one gesture
       s.x = e.clientX;
       s.y = e.clientY;
@@ -213,27 +213,66 @@ export class Input {
 
   // ------------------------------------------------------------ on-screen D-pad
 
+  /**
+   * The whole cross is one touch zone, like a real D-pad: the direction comes from where the thumb is
+   * relative to the centre, so the gaps between the arrows still count and rolling the thumb from
+   * one arrow to the next turns without lifting it.
+   */
   bindDpad() {
-    const steer = (btn) => {
-      this.app.sound.init();
-      this.game.steer(DIRS[btn.dataset.dir]);
+    const pad = this.game.$('dpad');
+    const buttons = [...pad.querySelectorAll('[data-dir]')];
+    let pointer = null;
+
+    const dirAt = (e) => {
+      const r = pad.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < r.width * 0.1) return null; // dead centre: keep the current direction
+      if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? DIRS.RIGHT : DIRS.LEFT;
+      return dy > 0 ? DIRS.DOWN : DIRS.UP;
     };
-    this.game.$('dpad').querySelectorAll('[data-dir]').forEach((btn) => {
-      // pointerdown (not click) removes the touch delay that matters in a game
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        this.dpadHeld = DIRS[btn.dataset.dir];
-        steer(btn);
-      });
-      const release = () => {
-        if (this.dpadHeld === DIRS[btn.dataset.dir]) this.dpadHeld = null;
-      };
-      for (const type of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(type, release);
-      // Keyboard / assistive-tech activation arrives as a click without a pointer
-      btn.addEventListener('click', (e) => {
-        if (e.detail === 0) steer(btn);
-      });
+    const show = (dir) => {
+      for (const btn of buttons) btn.classList.toggle('pressed', DIRS[btn.dataset.dir] === dir);
+    };
+    const press = (dir) => {
+      if (!dir || dir === this.dpadHeld) return;
+      this.dpadHeld = dir;
+      show(dir);
+      this.game.steer(dir, true);
+    };
+    const release = (e) => {
+      if (e.pointerId !== pointer) return;
+      pointer = null;
+      this.dpadHeld = null;
+      show(null);
+    };
+
+    // pointerdown (not click) removes the touch delay that matters in a game
+    pad.addEventListener('pointerdown', (e) => {
+      if (pointer !== null) return; // a second finger on the pad is ignored
+      e.preventDefault();
+      this.app.sound.init();
+      pointer = e.pointerId;
+      try {
+        pad.setPointerCapture(e.pointerId);
+      } catch {
+        /* not critical */
+      }
+      press(dirAt(e));
     });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId === pointer) press(dirAt(e));
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) pad.addEventListener(type, release);
+
+    // Keyboard / assistive-tech activation arrives as a click without a pointer
+    for (const btn of buttons) {
+      btn.addEventListener('click', (e) => {
+        if (e.detail !== 0) return;
+        this.app.sound.init();
+        this.game.steer(DIRS[btn.dataset.dir], true);
+      });
+    }
   }
 
   // ------------------------------------------------------------ gamepad
