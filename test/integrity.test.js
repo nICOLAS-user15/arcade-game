@@ -149,7 +149,9 @@ test('the project no longer depends on remote hosts at runtime', () => {
     assert.match(a, /rel="noopener noreferrer"/, a);
   }
   for (const file of ['index.html', 'style.css', ...srcFiles.map((f) => `src/${f}`)]) {
-    const text = file === 'index.html' ? html.replace(links, '') : read(file);
+    // Social preview tags and the canonical link name the site's own public address; nothing loads them
+    const ownSite = /<(?:meta property="og:[a-z:]+"|link rel="canonical")[^>]*"https:\/\/nicolas-user15\.github\.io\/arcade-game\/[^"]*"[^>]*>/g;
+    const text = file === 'index.html' ? html.replace(links, '').replace(ownSite, '') : read(file);
     assert.doesNotMatch(text, /https?:\/\/(?!www\.w3\.org)/, `${file} references a remote URL`);
   }
 });

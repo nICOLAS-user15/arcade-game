@@ -26,7 +26,7 @@ export class Input {
     this.bindKeyRelease();
     this.bindBoard();
     this.bindDpad();
-    window.addEventListener('gamepadconnected', () => this.app.toast(`🎮 ${t('toast.gamepad')}`));
+    window.addEventListener('gamepadconnected', () => this.app.toast(t('toast.gamepad')));
   }
 
   get dialogOpen() {

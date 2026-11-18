@@ -11,6 +11,7 @@ const APP_SHELL = [
   'manifest.webmanifest',
   'src/app.js',
   'src/audio.js',
+  'src/boot.js',
   'src/config.js',
   'src/cutscene.js',
   'src/entities.js',
@@ -27,6 +28,7 @@ const APP_SHELL = [
   'src/storage.js',
   'src/themes.js',
   'src/ui.js',
+  'src/version.js',
   'assets/fonts/fonts.css',
   'assets/fonts/press-start-2p-400-latin.woff2',
   'assets/fonts/press-start-2p-400-latin-ext.woff2',
@@ -76,6 +78,8 @@ self.addEventListener('activate', (event) => {
 // keep responses that are not part of the game.
 const SHELL_URLS = new Set(APP_SHELL.map((p) => new URL(p, self.location).href));
 const INDEX_URL = new URL('index.html', self.location).href;
+/** How long a request may take before the cached copy answers instead (slow or flaky connections). */
+const NETWORK_TIMEOUT = 4000;
 
 /** The cache key for a request: same URL without ?query or #hash, so "./?utm=x" maps to "./". */
 function shellKey(request) {
@@ -98,14 +102,19 @@ self.addEventListener('fetch', (event) => {
   if (!isShell && !isPage) return; // not part of the game: let the browser handle it normally
 
   event.respondWith(
-    caches.open(CACHE).then((cache) =>
-      fetch(request, { cache: 'no-cache' })
-        .then((response) => {
-          // Only complete, same-origin ("basic") answers for game files are kept
-          if (isShell && response.ok && response.type === 'basic') cache.put(key, response.clone());
-          return response;
-        })
-        .catch(async () => (await cache.match(key)) || (isPage ? cache.match(INDEX_URL) : Response.error()))
-    )
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const network = fetch(request, { cache: 'no-cache' }).then((response) => {
+        // Only complete, same-origin ("basic") answers for game files are kept
+        if (isShell && response.ok && response.type === 'basic') cache.put(key, response.clone());
+        return response;
+      });
+      const cached = (await cache.match(key)) || (isPage ? await cache.match(INDEX_URL) : undefined);
+      if (!cached) return network.catch(() => Response.error());
+      // A connection that is up but barely works must not freeze the game: after a few seconds the
+      // cached copy answers (the network reply still refreshes the cache when it arrives)
+      const slow = new Promise((resolve) => setTimeout(() => resolve(cached), NETWORK_TIMEOUT));
+      return Promise.race([network.catch(() => cached), slow]);
+    })()
   );
 });

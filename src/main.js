@@ -62,6 +62,8 @@ function start() {
   menu.show();
   game.updateSoundButton();
   new Intro(app).play();
+  // Everything is translated and themed now: show the menu (see src/boot.js)
+  document.documentElement.classList.remove('booting');
 
   // Console handle for debugging, only on the local dev server: on the published site it would
   // let anyone rewrite the score or the game state from the browser console.
@@ -69,10 +71,44 @@ function start() {
 
   // Offline support. Skipped on localhost so development is never served stale files.
   if ('serviceWorker' in navigator && !isLocalDev) {
+    // A page that was already controlled and sees a new worker take over is running old code
+    // (e.g. the installed app left open across a release): offer a reload instead of updating silently
+    const hadWorker = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadWorker) showUpdateNotice(game);
+    });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register(serviceWorkerUrl()).catch(() => {});
     });
   }
+}
+
+/** Small bar at the bottom: "A new version is ready" with Update / Later. Never interrupts a run. */
+let updateNotice = null;
+
+function showUpdateNotice(game) {
+  if (updateNotice) return;
+  const bar = document.createElement('div');
+  updateNotice = bar;
+  bar.className = 'update-notice';
+  bar.setAttribute('role', 'status');
+  const text = document.createElement('span');
+  text.textContent = t('update.ready');
+  const reload = document.createElement('button');
+  reload.type = 'button';
+  reload.className = 'btn-primary small';
+  reload.textContent = t('update.reload');
+  reload.addEventListener('click', () => {
+    game.commitScore();
+    location.reload();
+  });
+  const later = document.createElement('button');
+  later.type = 'button';
+  later.className = 'btn-ghost';
+  later.textContent = t('update.later');
+  later.addEventListener('click', () => bar.remove());
+  bar.append(text, reload, later);
+  document.body.append(bar);
 }
 
 if (isFramed()) showFrameNotice();

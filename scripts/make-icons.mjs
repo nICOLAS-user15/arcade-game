@@ -123,3 +123,88 @@ for (const [name, size, rounded] of targets) {
   fs.writeFileSync(path.join(OUT, name), renderPng(size, rounded));
   console.log('wrote', name);
 }
+
+// ---- Social preview image (Open Graph / Twitter card, 1200x630) -------
+//
+// Pac-Man chased by two ghosts along a row of pellets, between two maze walls. No text: the title and
+// description come from the og:title / og:description tags, so the image works in every language.
+
+const OG_W = 1200;
+const OG_H = 630;
+const MID = 330;
+
+function inGhost(x, y, cx, cy, r) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (dy < 0) return Math.hypot(dx, dy) < r; // round head
+  if (Math.abs(dx) >= r) return false;
+  // body down to a wavy hem with three bumps
+  const hem = r * 0.95 + Math.cos(((dx + r) / (2 * r)) * Math.PI * 6) * r * 0.12;
+  return dy < hem;
+}
+
+function shadeOg(x, y) {
+  // background: deep navy with a soft glow behind the action
+  const d = Math.min(1, Math.hypot((x - 600) / 760, (y - MID) / 480));
+  let c = [Math.round(20 + (6 - 20) * d), Math.round(32 + (8 - 32) * d), Math.round(74 + (17 - 74) * d)];
+
+  // maze walls: two double-ruled blue bars, like the classic theme
+  for (const wy of [96, 564]) {
+    const outer = Math.abs(y - wy) < 22 && x > 70 && x < 1130;
+    const inner = Math.abs(y - wy) < 13 && x > 80 && x < 1120;
+    const edge = outer && !inner ? 1 : inner && Math.abs(y - wy) > 8 ? 1 : 0;
+    if (edge) c = [33, 33, 255];
+  }
+
+  // pellets ahead of Pac-Man, and a power pellet
+  for (let px = 700; px <= 1000; px += 60) if (Math.hypot(x - px, y - MID) < 11) c = [255, 222, 219];
+  if (Math.hypot(x - 1080, y - MID) < 24) c = [255, 222, 219];
+
+  // ghosts chasing from the left
+  const ghosts = [[200, [255, 42, 42]], [370, [255, 184, 255]]];
+  for (const [gx, color] of ghosts) {
+    if (inGhost(x, y, gx, MID, 72)) {
+      c = color;
+      for (const ex of [-24, 26]) {
+        const eyeX = gx + ex;
+        const eyeY = MID - 18;
+        if (Math.hypot(x - eyeX, y - eyeY) < 17) c = [255, 255, 255];
+        if (Math.hypot(x - (eyeX + 8), y - eyeY) < 8) c = [33, 66, 222];
+      }
+    }
+  }
+
+  // Pac-Man, mouth open to the right
+  const dx = x - 580;
+  const dy = y - MID;
+  if (Math.hypot(dx, dy) < 120 && !(dx > 0 && Math.abs(Math.atan2(dy, dx)) < MOUTH)) c = [255, 230, 0];
+  if (Math.hypot(x - 595, y - (MID - 62)) < 13) c = [6, 8, 17];
+  return c;
+}
+
+function renderOg() {
+  const ss = 2;
+  const raw = Buffer.alloc((OG_W * 4 + 1) * OG_H);
+  for (let y = 0; y < OG_H; y++) {
+    raw[y * (OG_W * 4 + 1)] = 0;
+    for (let x = 0; x < OG_W; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let sy = 0; sy < ss; sy++) {
+        for (let sx = 0; sx < ss; sx++) {
+          const c = shadeOg(x + (sx + 0.5) / ss, y + (sy + 0.5) / ss);
+          r += c[0]; g += c[1]; b += c[2];
+        }
+      }
+      const o = y * (OG_W * 4 + 1) + 1 + x * 4;
+      const n = ss * ss;
+      raw[o] = Math.round(r / n);
+      raw[o + 1] = Math.round(g / n);
+      raw[o + 2] = Math.round(b / n);
+      raw[o + 3] = 255;
+    }
+  }
+  return encodePng(OG_W, OG_H, raw);
+}
+
+fs.writeFileSync(path.join(OUT, 'og-image.png'), renderOg());
+console.log('wrote og-image.png');

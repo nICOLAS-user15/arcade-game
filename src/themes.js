@@ -148,7 +148,9 @@ export function canvasFont(theme, px) {
   const f = theme.font;
   // The theme fonts are Latin-only: Japanese text falls back to the system's Japanese fonts
   const family = getLang() === 'ja' ? f.family.replace(/,\s*([\w-]+)$/, `, ${JP_FONTS}, $1`) : f.family;
-  return `${f.weight}${Math.round(px * f.scale)}px ${family}`;
+  // Japanese glyphs at pixel-font sizes are unreadable: draw them a little larger
+  const size = getLang() === 'ja' ? px * 1.2 : px;
+  return `${f.weight}${Math.round(size * f.scale)}px ${family}`;
 }
 
 const JP_FONTS = '"Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP"';

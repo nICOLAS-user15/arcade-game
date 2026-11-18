@@ -12,7 +12,7 @@ const dist = path.join(root, 'dist');
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 
-for (const entry of ['index.html', 'style.css', 'manifest.webmanifest']) {
+for (const entry of ['index.html', '404.html', 'style.css', 'manifest.webmanifest']) {
   fs.copyFileSync(path.join(root, entry), path.join(dist, entry));
 }
 for (const dir of ['src', 'assets']) {
@@ -22,6 +22,10 @@ for (const dir of ['src', 'assets']) {
 const buildId = (process.env.GITHUB_SHA || Date.now().toString(36)).slice(0, 10);
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8').replaceAll('__BUILD__', buildId);
 fs.writeFileSync(path.join(dist, 'sw.js'), sw);
+
+// The same id is shown in the Credits, so a player can tell which version they are running
+const versionFile = path.join(dist, 'src', 'version.js');
+fs.writeFileSync(versionFile, fs.readFileSync(versionFile, 'utf8').replace("'__BUILD__'", `'${buildId}'`));
 
 // Pages should serve the files as they are (no Jekyll processing)
 fs.writeFileSync(path.join(dist, '.nojekyll'), '');

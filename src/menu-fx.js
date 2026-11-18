@@ -227,12 +227,25 @@ export class AttractLane {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    // Drawn in these CSS-pixel units; the backing store follows the screen density (sharp on phones)
     this.w = canvas.width;
     this.h = canvas.height;
+    this.dpr = 0;
     this.cycle = 9; // seconds
   }
 
+  /** Resizes the backing store when the device pixel ratio changes (zoom, moving to another screen). */
+  fitDensity() {
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    if (dpr === this.dpr) return;
+    this.dpr = dpr;
+    this.canvas.width = Math.round(this.w * dpr);
+    this.canvas.height = Math.round(this.h * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
   draw(time, theme) {
+    this.fitDensity();
     const { ctx, w, h } = this;
     const color = (g) => theme?.ghosts[g.name] || g.color;
     ctx.clearRect(0, 0, w, h);

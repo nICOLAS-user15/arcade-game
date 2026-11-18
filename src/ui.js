@@ -4,10 +4,11 @@
  */
 
 import { DIFFICULTIES, GHOST_DEFS, PHASES, PHASE_COUNT, difficultyFor } from './config.js';
-import { t, formatNumber, LANGUAGES } from './i18n.js';
+import { t, formatNumber, formatPercent, LANGUAGES } from './i18n.js';
 import { BOARD_SIZE } from './storage.js';
+import { versionLabel } from './version.js';
 import { Starfield, AttractLane } from './menu-fx.js';
-import { drawPacman, drawGhost, drawPowerPellet, drawPellet, drawEmoji } from './sprites.js';
+import { drawPacman, drawGhost, drawPowerPellet, drawPellet, drawFruit } from './sprites.js';
 import { stageLook, shade } from './themes.js';
 
 const LANE_STILL_MS = 1950;
@@ -273,6 +274,7 @@ export class MenuUI {
     const ctx = hiDpiContext(cv, 56, 56);
     ctx.clearRect(0, 0, 56, 56);
     drawPacman(ctx, 28, 28, 22, { mouth: 0.22, as: this.app.settings.character });
+    this.$('creditsVersion').textContent = t('credits.build', { v: versionLabel() });
     const dlg = this.$('creditsDialog');
     if (!dlg.open) dlg.showModal();
   }
@@ -300,9 +302,9 @@ export class MenuUI {
       const v = s[input.dataset.volume];
       input.value = String(v);
       input.style.setProperty('--fill', `${v}%`);
-      input.setAttribute('aria-valuetext', `${v}%`);
+      input.setAttribute('aria-valuetext', formatPercent(v));
       const out = document.querySelector(`output[data-for="${input.dataset.volume}"]`);
-      if (out) out.textContent = `${v}%`;
+      if (out) out.textContent = formatPercent(v);
     });
     if (this.$('howtoDialog').open) this.goToStep(this.step);
     if (this.$('scoresDialog').open) this.renderScores();
@@ -334,7 +336,7 @@ export class MenuUI {
     custom.title = t('diff.custom.hint', { lives: s.customLives, speed: s.customSpeed });
     for (const [id, value, text] of [
       ['customLives', s.customLives, String(s.customLives)],
-      ['customSpeed', s.customSpeed, `${s.customSpeed}%`]
+      ['customSpeed', s.customSpeed, formatPercent(s.customSpeed)]
     ]) {
       const input = this.$(id);
       input.value = String(value);
@@ -376,9 +378,10 @@ export class MenuUI {
     bestLine.textContent = d.custom
       ? t('menu.bestCustom')
       : best
-        ? `🏆 ${t('menu.best', { diff: diffName, mode: modeName, score: formatNumber(best) })}`
+        ? t('menu.best', { diff: diffName, mode: modeName, score: formatNumber(best) })
         : t('menu.bestNone');
     bestLine.classList.toggle('muted', !best);
+    bestLine.classList.toggle('has-record', best > 0); // CSS draws the trophy icon before the text
 
     // One-line summary right above PLAY
     this.$('setupSummary').textContent = t('menu.summary', {
@@ -462,11 +465,13 @@ export class MenuUI {
     }
     bindRadioGroup($('langPicker'), (btn) => this.setLanguage(btn.dataset.lang));
     bindRadioGroup($('dpadPicker'), (btn) => this.app.update({ dpad: btn.dataset.dpad }));
-    // Collapsible "Languages" section: soft cue when it opens or closes
-    $('langGroup').addEventListener('toggle', () => {
-      sound.init();
-      if ($('langGroup').open) sound.open();
-      else sound.close();
+    // Collapsible Settings sections (Languages, Display, Audio...): soft cue when one opens or closes
+    $('settingsDialog').querySelectorAll('details.setting-group').forEach((group) => {
+      group.addEventListener('toggle', () => {
+        sound.init();
+        if (group.open) sound.open();
+        else sound.close();
+      });
     });
 
     document.querySelectorAll('input[data-setting]').forEach((input) => {
@@ -626,7 +631,12 @@ export class MenuUI {
   }
 
   goToStep(n) {
+    const previous = this.step;
     this.step = Math.max(0, Math.min(this.stepCount - 1, n));
+    // The progress dots are visual only: say where we are for screen readers
+    const where = t('howto.stepOf', { n: this.step + 1, total: this.stepCount });
+    this.$('howtoDots').title = where;
+    if (this.step !== previous) this.app.announce(where);
     this.$('howtoSteps').querySelectorAll('.step').forEach((el, i) => (el.hidden = i !== this.step));
     this.$('howtoDots').querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i === this.step));
     this.$('howtoPrev').disabled = this.step === 0;
@@ -669,7 +679,7 @@ export class MenuUI {
       } else if (kind === 'power') {
         drawPowerPellet(ctx, c, c, size * 0.2);
       } else if (kind === 'fruit') {
-        drawEmoji(ctx, PHASES[0].fruit.icon, c, c, size * 0.55);
+        drawFruit(ctx, PHASES[0].fruit.kind, c, c, size * 0.62);
       } else if (kind === 'scared') {
         drawGhost(ctx, c, c, size * 0.34, { color: '#fff', state: 'scared', wave: 0 });
       } else if (ghost) {
@@ -724,6 +734,13 @@ export class MenuUI {
       if (!entry) row.classList.add('empty');
     }
     body.appendChild(table);
+    if (!list.length) {
+      // An empty table reads as broken without a word of explanation
+      const empty = document.createElement('p');
+      empty.className = 'scores-empty';
+      empty.textContent = t('scores.empty');
+      body.appendChild(empty);
+    }
 
     const played = document.createElement('p');
     played.className = 'scores-foot';

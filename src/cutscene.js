@@ -5,7 +5,7 @@
  */
 
 import { LOGICAL_W, LOGICAL_H } from './config.js';
-import { drawPacman, drawGhost, drawEmoji, drawPowerPellet } from './sprites.js';
+import { drawPacman, drawGhost, drawFruit, drawCrown, drawPowerPellet } from './sprites.js';
 import { t } from './i18n.js';
 import { getTheme, canvasFont, rgba } from './themes.js';
 
@@ -227,14 +227,14 @@ export class Cutscene {
       const pulse = this.hooks.reduceMotion ? 0 : Math.sin(performance.now() * 0.015) * 2;
       drawPowerPellet(ctx, this.pellet.x, this.pellet.y, 9 + pulse);
     }
-    if (this.fruit && !this.fruit.eaten) drawEmoji(ctx, '🍓', this.fruit.x, this.fruit.y, 24);
+    if (this.fruit && !this.fruit.eaten) drawFruit(ctx, 'strawberry', this.fruit.x, this.fruit.y, 24);
 
     for (const g of this.ghosts) {
       drawGhost(ctx, g.x, g.y, 12, { color: theme.ghosts[g.name], state: g.scared ? 'scared' : 'normal', dx: g.dir, wave: this.time * 10 });
     }
     const p = this.pac;
     drawPacman(ctx, p.x, p.y, p.r, { angle: p.dir === -1 ? Math.PI : 0, mouth: p.mouth, glow: p.mega });
-    if (p.mega) drawEmoji(ctx, '👑', p.x - p.r * 0.2, p.y - p.r * 1.2, 14);
+    if (p.mega) drawCrown(ctx, p.x - p.r * 0.2, p.y - p.r * 1.25, 16);
 
     for (const c of this.particles) {
       ctx.globalAlpha = Math.max(0, c.life);

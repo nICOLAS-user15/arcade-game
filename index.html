@@ -9,13 +9,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060811">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Pac-Man Arcade: a free browser game with 5 stages, 4 visual themes, 4 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <meta name="description" content="Pac-Man Arcade: a free browser game with 5 stages, 4 visual themes, 4 difficulty levels and an endless mode, in 5 languages. Play on desktop or mobile.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pac-Man">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pac-Man Arcade">
-  <meta property="og:description" content="5 stages, 4 visual themes, 4 difficulty levels and an endless mode. Play on desktop or mobile.">
+  <meta property="og:description" content="5 stages, 4 visual themes, 4 difficulty levels and an endless mode, in 5 languages. Play on desktop or mobile.">
+  <meta property="og:url" content="https://nicolas-user15.github.io/arcade-game/">
+  <meta property="og:image" content="https://nicolas-user15.github.io/arcade-game/assets/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Pac-Man chased by two ghosts along a row of pellets">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://nicolas-user15.github.io/arcade-game/">
   <title>Pac-Man Arcade</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
@@ -23,8 +31,22 @@
   <link rel="preload" href="assets/fonts/press-start-2p-400-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/fonts/fonts.css">
   <link rel="stylesheet" href="style.css">
+  <script src="src/boot.js"></script>
 </head>
 <body>
+  <!-- Icon sprite: line icons used across the interface (no emoji, so they look the same everywhere) -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0V2z"/></symbol>
+    <symbol id="i-ghost" viewBox="0 0 24 24"><path d="M5 21V11a7 7 0 0 1 14 0v10l-2.3-2-2.4 2-2.3-2-2.3 2-2.4-2z"/><circle cx="9.5" cy="11" r="1.3"/><circle cx="14.5" cy="11" r="1.3"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="M2.5 7l3.5 11h12l3.5-11-6 5-3.5-7-3.5 7-6-5zM6 21h12"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h8l-1 8 9-12h-8l1-8z"/></symbol>
+    <symbol id="i-tunnel" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+    <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M3 7h18M3 17h18M6 4 3 7l3 3M18 14l3 3-3 3"/></symbol>
+    <symbol id="i-portal" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
+    <symbol id="i-fortress" viewBox="0 0 24 24"><path d="M4 21V9h3V5h3v4h4V5h3v4h3v12zM10 21v-4a2 2 0 0 1 4 0v4"/></symbol>
+    <symbol id="i-reverse" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-infinity" viewBox="0 0 24 24"><path d="M12 12c-2-2.6-3.6-4-5.5-4a4 4 0 0 0 0 8c1.9 0 3.5-1.4 5.5-4zm0 0c2 2.6 3.6 4 5.5 4a4 4 0 0 0 0-8c-1.9 0-3.5 1.4-5.5 4z"/></symbol>
+  </svg>
   <a class="skip-link" href="#btnGameMode" data-i18n="a11y.skip">Skip to menu</a>
 
   <div id="app" class="app">
@@ -201,6 +223,11 @@
           <div id="gameOverlay" class="overlay" hidden>
             <div id="pauseModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden>
               <h2 id="pauseTitle" data-i18n="pause.title">PAUSED</h2>
+              <p id="pauseStatus" class="pause-status"></p>
+              <div class="pause-audio">
+                <button type="button" id="btnPauseMusic" class="btn-ghost toggle" aria-pressed="true" data-i18n="settings.music">Music</button>
+                <button type="button" id="btnPauseSfx" class="btn-ghost toggle" aria-pressed="true" data-i18n="settings.sfx">Sound effects</button>
+              </div>
               <div class="modal-actions">
                 <button type="button" id="btnContinue" class="btn-primary small" data-i18n="pause.resume">Resume</button>
                 <button type="button" id="btnRestartPause" class="btn-ghost block" data-i18n="pause.restart">Restart</button>
@@ -213,19 +240,19 @@
               <p id="briefingLevel" class="briefing-badge"></p>
               <h2 id="briefingTitle"></h2>
               <ul class="features">
-                <li><span id="briefingFeatureIcon" class="feat-icon" aria-hidden="true"></span><span class="feat-info"><small data-i18n="briefing.new">NEW</small><b id="briefingFeatureText"></b></span></li>
-                <li><span id="briefingFruitIcon" class="feat-icon" aria-hidden="true"></span><span class="feat-info"><small data-i18n="briefing.fruit">BONUS FRUIT</small><b id="briefingFruitText"></b></span></li>
-                <li><span class="feat-icon" aria-hidden="true">⚡</span><span class="feat-info"><small data-i18n="briefing.speed">GHOST SPEED</small><b id="briefingSpeedText"></b></span></li>
+                <li><span class="feat-icon" aria-hidden="true"><svg class="ico"><use id="briefingFeatureIcon" href="#i-tunnel"/></svg></span><span class="feat-info"><small data-i18n="briefing.new">NEW</small><b id="briefingFeatureText"></b></span></li>
+                <li><span class="feat-icon" aria-hidden="true"><canvas id="briefingFruitIcon" class="fruit-cv"></canvas></span><span class="feat-info"><small data-i18n="briefing.fruit">BONUS FRUIT</small><b id="briefingFruitText"></b></span></li>
+                <li><span class="feat-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-bolt"/></svg></span><span class="feat-info"><small data-i18n="briefing.speed">GHOST SPEED</small><b id="briefingSpeedText"></b></span></li>
               </ul>
               <p class="bonus-line"><span data-i18n="briefing.bonus">Cutscene bonus</span> <b id="briefingBonusPts">+0</b></p>
               <button type="button" id="btnStartPhase" class="btn-primary small"></button>
             </div>
 
             <div id="standardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" hidden>
-              <div id="overlayIcon" class="modal-icon" aria-hidden="true"></div>
+              <div class="modal-icon" aria-hidden="true"><svg class="ico"><use id="overlayIcon" href="#i-trophy"/></svg></div>
               <h2 id="overlayTitle"></h2>
               <p id="overlaySubtitle" class="modal-text"></p>
-              <p id="newBest" class="new-best" hidden data-i18n="result.newBest">★ NEW PERSONAL BEST ★</p>
+              <p id="newBest" class="new-best" hidden data-i18n="result.newBest">NEW PERSONAL BEST</p>
               <p id="resultRank" class="rank-line" hidden></p>
               <div class="modal-actions">
                 <button type="button" id="btnPrimary" class="btn-primary small"></button>
@@ -234,7 +261,7 @@
             </div>
 
             <div id="initialsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="initialsTitle" hidden>
-              <div class="modal-icon" aria-hidden="true">🏆</div>
+              <div class="modal-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-trophy"/></svg></div>
               <h2 id="initialsTitle" data-i18n="initials.title">NEW HIGH SCORE!</h2>
               <p id="initialsRank" class="modal-text"></p>
               <label class="initials-field">
@@ -255,7 +282,7 @@
           <span id="livesLabel" class="stat-label" data-i18n="hud.lives">LIVES</span>
           <div id="livesIcons" class="lives-icons"></div>
         </div>
-        <div id="fruitChip" class="fruit-chip" role="img"></div>
+        <canvas id="fruitChip" class="fruit-chip" role="img"></canvas>
         <div class="tool-buttons">
           <button type="button" id="btnPause" class="icon-btn" data-i18n-aria="btn.pause" data-i18n-title="btn.pause">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-pause" d="M8 5v14M16 5v14"/><path class="i-play" d="M7 5l12 7-12 7z"/></svg>
@@ -277,8 +304,8 @@
       </div>
 
       <footer class="key-hints">
-        <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd>WASD</kbd> <span data-i18n="keys.move">Move</span></span>
-        <span><kbd>Space</kbd> <span data-i18n="keys.pause">Pause</span></span>
+        <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd data-i18n="keys.letters">WASD</kbd> <span data-i18n="keys.move">Move</span></span>
+        <span><kbd data-i18n="keys.space">Space</kbd> / <kbd>P</kbd> / <kbd>Esc</kbd> <span data-i18n="keys.pause">Pause</span></span>
         <span><kbd>F</kbd> <span data-i18n="keys.fullscreen">Fullscreen</span></span>
         <span><kbd>M</kbd> <span data-i18n="keys.mute">Mute</span></span>
       </footer>
@@ -352,10 +379,10 @@
         <section class="step" data-step="5" hidden>
           <h3 data-i18n="howto.s5.title">5 · Tunnels, portals and tips</h3>
           <ul class="tips">
-            <li><span class="tip-icon" aria-hidden="true">🌀</span><span data-i18n="howto.tip.tunnel">Side tunnels wrap you to the other edge. Ghosts slow down inside them.</span></li>
-            <li><span class="tip-icon" aria-hidden="true">🌌</span><span data-i18n="howto.tip.portal">From stage 3, corner portals teleport you diagonally across the maze.</span></li>
-            <li><span class="tip-icon" aria-hidden="true">↩️</span><span data-i18n="howto.tip.reverse">You can reverse instantly in any corridor. Use it to dodge.</span></li>
-            <li><span class="tip-icon" aria-hidden="true">♾️</span><span data-i18n="howto.tip.endless">Endless mode repeats the stages, each lap a little faster.</span></li>
+            <li><span class="tip-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-tunnel"/></svg></span><span data-i18n="howto.tip.tunnel">Side tunnels wrap you to the other edge. Ghosts slow down inside them.</span></li>
+            <li><span class="tip-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-portal"/></svg></span><span data-i18n="howto.tip.portal">From stage 3, corner portals teleport you diagonally across the maze.</span></li>
+            <li><span class="tip-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-reverse"/></svg></span><span data-i18n="howto.tip.reverse">You can reverse instantly in any corridor. Use it to dodge.</span></li>
+            <li><span class="tip-icon" aria-hidden="true"><svg class="ico" aria-hidden="true"><use href="#i-infinity"/></svg></span><span data-i18n="howto.tip.endless">Endless mode repeats the stages, each lap a little faster.</span></li>
           </ul>
         </section>
       </div>
@@ -392,64 +419,96 @@
           </div>
         </details>
 
-        <div class="setting stacked">
-          <span class="setting-text"><b id="lblThemeSettings" data-i18n="settings.theme">Theme</b></span>
-          <div id="themePickerSettings" class="segmented themes" role="radiogroup" aria-labelledby="lblThemeSettings">
-            <button type="button" role="radio" aria-checked="true" data-theme-id="classic"><span class="swatch" data-sw="classic" aria-hidden="true"></span><span data-i18n="theme.classic">Classic</span></button>
-            <button type="button" role="radio" aria-checked="false" data-theme-id="retro"><span class="swatch" data-sw="retro" aria-hidden="true"></span><span data-i18n="theme.retro">Retro</span></button>
-            <button type="button" role="radio" aria-checked="false" data-theme-id="pastel"><span class="swatch" data-sw="pastel" aria-hidden="true"></span><span data-i18n="theme.pastel">Pastel</span></button>
-            <button type="button" role="radio" aria-checked="false" data-theme-id="minimal"><span class="swatch" data-sw="minimal" aria-hidden="true"></span><span data-i18n="theme.minimal">Minimal</span></button>
+        <details class="setting-group">
+          <summary>
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            <b data-i18n="settings.group.display">Display</b>
+          </summary>
+          <div class="group-body">
+          <div class="setting stacked">
+            <span class="setting-text"><b id="lblThemeSettings" data-i18n="settings.theme">Theme</b></span>
+            <div id="themePickerSettings" class="segmented themes" role="radiogroup" aria-labelledby="lblThemeSettings">
+              <button type="button" role="radio" aria-checked="true" data-theme-id="classic"><span class="swatch" data-sw="classic" aria-hidden="true"></span><span data-i18n="theme.classic">Classic</span></button>
+              <button type="button" role="radio" aria-checked="false" data-theme-id="retro"><span class="swatch" data-sw="retro" aria-hidden="true"></span><span data-i18n="theme.retro">Retro</span></button>
+              <button type="button" role="radio" aria-checked="false" data-theme-id="pastel"><span class="swatch" data-sw="pastel" aria-hidden="true"></span><span data-i18n="theme.pastel">Pastel</span></button>
+              <button type="button" role="radio" aria-checked="false" data-theme-id="minimal"><span class="swatch" data-sw="minimal" aria-hidden="true"></span><span data-i18n="theme.minimal">Minimal</span></button>
+            </div>
           </div>
-        </div>
 
-        <div class="setting stacked">
-          <span class="setting-text"><b id="lblChar" data-i18n="settings.character">Character</b><small data-i18n="settings.character.hint">Only changes the look, never the rules</small></span>
-          <div id="charPicker" class="segmented chars" role="radiogroup" aria-labelledby="lblChar">
-            <button type="button" role="radio" aria-checked="true" data-char="pac"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.pac">Pac-Man</span></button>
-            <button type="button" role="radio" aria-checked="false" data-char="ms"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.ms">Ms. Pac</span></button>
-            <button type="button" role="radio" aria-checked="false" data-char="cherry"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.cherry">Cherry</span></button>
-            <button type="button" role="radio" aria-checked="false" data-char="mint"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.mint">Mint</span></button>
+          <div class="setting stacked">
+            <span class="setting-text"><b id="lblChar" data-i18n="settings.character">Character</b><small data-i18n="settings.character.hint">Only changes the look, never the rules</small></span>
+            <div id="charPicker" class="segmented chars" role="radiogroup" aria-labelledby="lblChar">
+              <button type="button" role="radio" aria-checked="true" data-char="pac"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.pac">Pac-Man</span></button>
+              <button type="button" role="radio" aria-checked="false" data-char="ms"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.ms">Ms. Pac</span></button>
+              <button type="button" role="radio" aria-checked="false" data-char="cherry"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.cherry">Cherry</span></button>
+              <button type="button" role="radio" aria-checked="false" data-char="mint"><canvas class="char-cv" width="34" height="34" aria-hidden="true"></canvas><span data-i18n="char.mint">Mint</span></button>
+            </div>
           </div>
-        </div>
 
-        <label class="setting">
-          <span class="setting-text"><b data-i18n="settings.music">Music</b><small data-i18n="settings.music.hint">A soundtrack for the menu and every stage</small></span>
-          <input type="checkbox" role="switch" data-setting="music">
-          <span class="switch" aria-hidden="true"></span>
-        </label>
-        <div class="setting volume">
-          <input type="range" min="0" max="100" step="5" data-volume="musicVolume" data-i18n-aria="settings.musicVolume">
-          <output class="vol-val" data-for="musicVolume"></output>
-        </div>
-
-        <label class="setting">
-          <span class="setting-text"><b data-i18n="settings.sfx">Sound effects</b></span>
-          <input type="checkbox" role="switch" data-setting="sfx">
-          <span class="switch" aria-hidden="true"></span>
-        </label>
-        <div class="setting volume">
-          <input type="range" min="0" max="100" step="5" data-volume="sfxVolume" data-i18n-aria="settings.sfxVolume">
-          <output class="vol-val" data-for="sfxVolume"></output>
-        </div>
-
-        <label class="setting">
-          <span class="setting-text"><b data-i18n="settings.motion">Reduce motion</b><small data-i18n="settings.motion.hint">Fewer flashes, calmer menu, no screen effects</small></span>
-          <input type="checkbox" role="switch" data-setting="reduceMotion">
-          <span class="switch" aria-hidden="true"></span>
-        </label>
-
-        <div class="setting">
-          <span class="setting-text"><b data-i18n="settings.dpad">On-screen D-pad</b><small data-i18n="settings.dpad.hint">Arrows for touch play</small></span>
-          <div id="dpadPicker" class="segmented" role="radiogroup" data-i18n-aria="settings.dpad">
-            <button type="button" role="radio" aria-checked="true" data-dpad="on" data-i18n="settings.on">On</button>
-            <button type="button" role="radio" aria-checked="false" data-dpad="off" data-i18n="settings.off">Off</button>
+          <label class="setting">
+            <span class="setting-text"><b data-i18n="settings.motion">Reduce motion</b><small data-i18n="settings.motion.hint">Fewer flashes, calmer menu, no screen effects</small></span>
+            <input type="checkbox" role="switch" data-setting="reduceMotion">
+            <span class="switch" aria-hidden="true"></span>
+          </label>
           </div>
-        </div>
+        </details>
 
-        <div class="setting credits-row">
-          <span class="setting-text"><b data-i18n="settings.credits">Credits</b><small data-i18n="settings.credits.hint">About the game and who made it</small></span>
-          <button type="button" id="btnCredits" class="btn-ghost" data-i18n="settings.credits.btn">View</button>
-        </div>
+        <details class="setting-group">
+          <summary>
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            <b data-i18n="settings.group.audio">Audio</b>
+          </summary>
+          <div class="group-body">
+          <label class="setting">
+            <span class="setting-text"><b data-i18n="settings.music">Music</b><small data-i18n="settings.music.hint">A soundtrack for the menu and every stage</small></span>
+            <input type="checkbox" role="switch" data-setting="music">
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+          <div class="setting volume">
+            <input type="range" min="0" max="100" step="5" data-volume="musicVolume" data-i18n-aria="settings.musicVolume">
+            <output class="vol-val" data-for="musicVolume"></output>
+          </div>
+
+          <label class="setting">
+            <span class="setting-text"><b data-i18n="settings.sfx">Sound effects</b></span>
+            <input type="checkbox" role="switch" data-setting="sfx">
+            <span class="switch" aria-hidden="true"></span>
+          </label>
+          <div class="setting volume">
+            <input type="range" min="0" max="100" step="5" data-volume="sfxVolume" data-i18n-aria="settings.sfxVolume">
+            <output class="vol-val" data-for="sfxVolume"></output>
+          </div>
+          </div>
+        </details>
+
+        <details class="setting-group">
+          <summary>
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            <b data-i18n="settings.group.controls">Controls</b>
+          </summary>
+          <div class="group-body">
+          <div class="setting">
+            <span class="setting-text"><b data-i18n="settings.dpad">On-screen D-pad</b><small data-i18n="settings.dpad.hint">Arrows for touch play</small></span>
+            <div id="dpadPicker" class="segmented" role="radiogroup" data-i18n-aria="settings.dpad">
+              <button type="button" role="radio" aria-checked="true" data-dpad="on" data-i18n="settings.on">On</button>
+              <button type="button" role="radio" aria-checked="false" data-dpad="off" data-i18n="settings.off">Off</button>
+            </div>
+          </div>
+          </div>
+        </details>
+
+        <details class="setting-group">
+          <summary>
+            <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            <b data-i18n="settings.group.about">About</b>
+          </summary>
+          <div class="group-body">
+          <div class="setting credits-row">
+            <span class="setting-text"><b data-i18n="settings.credits">Credits</b><small data-i18n="settings.credits.hint">About the game and who made it</small></span>
+            <button type="button" id="btnCredits" class="btn-ghost" data-i18n="settings.credits.btn">View</button>
+          </div>
+          </div>
+        </details>
 
         <div class="setting danger-zone">
           <span class="setting-text"><b data-i18n="settings.reset">Reset progress</b><small data-i18n="settings.reset.hint">Erases scores and tutorial progress</small></span>
@@ -492,6 +551,7 @@
           <a href="https://github.com/nicolas-user15/arcade-game" target="_blank" rel="noopener noreferrer" data-i18n="credits.source">Source code</a>
         </div>
         <p class="credits-foot" data-i18n="credits.legal">© 2026 Nicolas de Moura · MIT License. Pac-Man and its characters are trademarks of their respective owners; this is a non-commercial tribute made for study.</p>
+        <p id="creditsVersion" class="credits-foot"></p>
       </div>
     </dialog>
 
@@ -535,7 +595,7 @@
     <div id="srStatus" class="sr-only" role="status" aria-live="polite"></div>
   </div>
 
-  <noscript><p class="noscript">This game needs JavaScript to run.</p></noscript>
+  <noscript><p class="noscript" lang="en">This game needs JavaScript to run.</p><p class="noscript" lang="pt-BR">Este jogo precisa de JavaScript para funcionar.</p></noscript>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@ import {
 } from './config.js';
 import { Pacman, Ghost, tileOf } from './entities.js';
 import { Cutscene, CUTSCENE_BONUS } from './cutscene.js';
-import { drawPowerPellet, drawPortal, drawEmoji, pelletPath, getSkin } from './sprites.js';
+import { drawPowerPellet, drawPortal, drawFruit, paintFruit, pelletPath, getSkin } from './sprites.js';
 import { stageLook, canvasFont, shade } from './themes.js';
 import { STAGE_TRACK } from './songs.js';
 import { Input } from './input.js';
@@ -52,6 +52,16 @@ export function tunnelTiles(map, rows) {
   return tiles;
 }
 
+/** WCAG relative luminance of a #rrggbb color (0 = black, 1 = white). */
+export function relativeLuminance(hex) {
+  const n = parseInt(hex.slice(1, 7), 16);
+  const lin = (v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+}
+
 /** Shortest offset across a tunnel: one actor at x = -5 and another at x = 385 are touching. */
 const wrapDelta = (d, period) => (Math.abs(d) > period / 2 ? d - Math.sign(d) * period : d);
 const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
@@ -60,7 +70,7 @@ const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the 
  * a full second each when a stage starts, quicker after losing a life, quickest between endless
  * levels (just enough to read the new maze, so the run keeps its rhythm).
  */
-const COUNTDOWN = Object.freeze({ stage: 3, respawn: 2.1, endless: 1.8 });
+const COUNTDOWN = Object.freeze({ stage: 3, respawn: 2.1, endless: 1.8, resume: 1.5 });
 const COUNTDOWN_DIGITS = 3;
 /** Points given instead of an extra life when the lives are already full. */
 const FULL_LIVES_BONUS = 5000;
@@ -254,8 +264,14 @@ export class Game {
     if (fresh) {
       this.app.announce(t('sr.stageStart', { name: t(`phase.${this.phase.id}.name`) }));
       if (this.phase.portals.length) this.hint('portal', 'hint.portal');
-      else if (this.level === 1) this.hint('move', this.app.dpadVisible ? 'hint.move.touch' : 'hint.move.keys');
+      else if (this.level === 1) this.hint('move', this.moveHintKey());
     }
+  }
+
+  /** First-game tip: touch only, keyboard only, or both when the D-pad shows on a computer. */
+  moveHintKey() {
+    if (!this.app.dpadVisible) return 'hint.move.keys';
+    return matchMedia('(any-pointer: fine)').matches ? 'hint.move.both' : 'hint.move.touch';
   }
 
   /** READY state: the board is frozen while 3-2-1 counts down; the player can already pick a direction. */
@@ -737,10 +753,10 @@ export class Game {
     $('briefingLevel').textContent = this.endless || next > PHASE_COUNT
       ? t('briefing.endless', { n: next })
       : t('briefing.unlocked', { n: next, max: PHASE_COUNT });
-    $('briefingTitle').textContent = t(`phase.${ph.id}.name`).toUpperCase();
-    $('briefingFeatureIcon').textContent = ph.feature.icon;
+    $('briefingTitle').textContent = t(`phase.${ph.id}.name`); // upper-cased by CSS, with the right rules for each language
+    $('briefingFeatureIcon').setAttribute('href', `#i-${ph.feature.icon}`);
     $('briefingFeatureText').textContent = t(`phase.${ph.id}.feature`);
-    $('briefingFruitIcon').textContent = ph.fruit.icon;
+    paintFruit($('briefingFruitIcon'), ph.fruit.kind, 30);
     $('briefingFruitText').textContent = `${t(`phase.${ph.id}.fruit`)} (+${formatNumber(params.fruitPoints)})`;
 
     const baseline = PHASES[0].ghostSpeed * this.difficulty.ghostSpeed;
@@ -755,6 +771,8 @@ export class Game {
     const modal = $('briefingModal');
     modal.style.setProperty('--next', nextLook.wall);
     modal.style.setProperty('--next-glow', nextLook.glow);
+    // Text on the stage-colored button: dark on light colors, white on dark ones (WCAG contrast)
+    modal.style.setProperty('--next-text', relativeLuminance(nextLook.wall) > 0.18 ? '#0b0d1a' : '#ffffff');
     const btn = $('btnStartPhase');
     btn.textContent = t(this.endless || next > PHASE_COUNT ? 'briefing.enterLevel' : 'briefing.enterStage', { n: next });
     this.showOverlayModal('briefingModal');
@@ -781,7 +799,7 @@ export class Game {
     const isRecord = this.isNewRecord;
     this.app.sound.playJingle(isRecord ? 'record' : 'victory');
     this.askInitials((rank) => this.showResult({
-      icon: '👑',
+      icon: 'crown',
       title: t('result.victory'),
       text: t('result.victory.text', { max: PHASE_COUNT, score: formatNumber(this.score) }),
       isRecord,
@@ -807,7 +825,7 @@ export class Game {
     this.app.announce(t('sr.gameOver', { score: formatNumber(this.score) }));
     const where = t(this.isEndlessView ? 'result.where.level' : 'result.where.stage', { n: this.level });
     this.askInitials((rank) => this.showResult({
-      icon: '💀',
+      icon: 'ghost',
       title: t('result.gameover'),
       text: t('result.gameover.text', { score: formatNumber(this.score), where }),
       isRecord,
@@ -874,12 +892,23 @@ export class Game {
     this.app.sound.duckMusic(true);
     this.updatePauseButton();
     this.app.announce(t('sr.paused'));
+    this.refreshPauseMenu();
     this.showOverlayModal('pauseModal');
+  }
+
+  /** Score and stage of the run, plus the state of the quick audio switches. */
+  refreshPauseMenu() {
+    const where = t(this.isEndlessView ? 'result.where.level' : 'result.where.stage', { n: this.level });
+    this.$('pauseStatus').textContent = t('pause.status', { score: formatNumber(this.score), where });
+    this.$('btnPauseMusic').setAttribute('aria-pressed', String(!!this.app.settings.music));
+    this.$('btnPauseSfx').setAttribute('aria-pressed', String(!!this.app.settings.sfx));
   }
 
   resume() {
     if (this.state !== 'PAUSED') return;
-    this.state = this.prevState || 'PLAYING';
+    // Coming back mid-play gets a short 3-2-1 to find Pac-Man again before the ghosts move
+    if (this.prevState === 'READY' || this.prevState === 'PLAYING') this.startCountdown(this.prevState === 'READY' ? Math.max(this.readyTimer, COUNTDOWN.resume) : COUNTDOWN.resume);
+    else this.state = this.prevState || 'PLAYING';
     this.acc = 0;
     this.app.sound.pauseOut();
     this.app.sound.duckMusic(false);
@@ -1094,7 +1123,7 @@ export class Game {
 
     if (this.fruit.active) {
       const blinking = this.fruit.timer < 3 && Math.floor(this.fruit.timer * 5) % 2 === 0;
-      if (!blinking) drawEmoji(ctx, this.phase.fruit.icon, this.fruit.x, this.fruit.y, 14);
+      if (!blinking) drawFruit(ctx, this.phase.fruit.kind, this.fruit.x, this.fruit.y, 17);
     }
 
     if (this.state !== 'STAGE_CLEAR') {
@@ -1225,7 +1254,7 @@ export class Game {
     root.style.setProperty('--phase', this.look.wall);
     root.style.setProperty('--phase-glow', this.look.glow);
     const chip = this.$('fruitChip');
-    chip.textContent = this.phase.fruit.icon;
+    paintFruit(chip, this.phase.fruit.kind, 26);
     this.refreshFruitLabel();
   }
 
@@ -1281,7 +1310,7 @@ export class Game {
       box.appendChild(more);
     }
     box.setAttribute('role', 'img');
-    box.setAttribute('aria-label', String(Math.max(0, this.lives)));
+    box.setAttribute('aria-label', t('sr.lives', { n: Math.max(0, this.lives) }));
   }
 
   updatePowerBar() {
@@ -1388,7 +1417,8 @@ export class Game {
   }
 
   showResult({ icon, title, text, isRecord, rank = -1, primary, secondary }) {
-    this.$('overlayIcon').textContent = icon;
+    this.$('overlayIcon').setAttribute('href', `#i-${icon}`);
+    this.$('overlayIcon').closest('.modal-icon').dataset.icon = icon;
     this.$('overlayTitle').textContent = title;
     this.$('overlaySubtitle').textContent = text;
     this.$('newBest').hidden = !isRecord;
@@ -1440,6 +1470,15 @@ export class Game {
     press('btnSound', () => this.toggleSound());
     press('btnFullscreen', () => this.toggleFullscreen());
     press('btnContinue', () => this.resume());
+    press('btnPauseMusic', () => {
+      this.app.update({ music: !this.app.settings.music });
+      if (this.app.settings.music) this.app.sound.init();
+      this.refreshPauseMenu();
+    });
+    press('btnPauseSfx', () => {
+      this.app.update({ sfx: !this.app.settings.sfx });
+      this.refreshPauseMenu();
+    });
     press('btnRestartPause', () => this.restart());
     press('btnSettingsPause', () => this.menu?.openSettings());
     press('btnQuit', () => this.showMenu());
