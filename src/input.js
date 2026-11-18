@@ -20,7 +20,10 @@ export class Input {
     this.swipe = null;
     this.padPrev = {};
     this.padDir = null;
+    this.keysDown = new Set(); // direction keys currently held
+    this.dpadHeld = null; // D-pad arrow currently pressed
     this.bindKeyboard();
+    this.bindKeyRelease();
     this.bindBoard();
     this.bindDpad();
     window.addEventListener('gamepadconnected', () => this.app.toast(`🎮 ${t('toast.gamepad')}`));
@@ -28,6 +31,13 @@ export class Input {
 
   get dialogOpen() {
     return !!document.querySelector('dialog[open]');
+  }
+
+  /** True while `dir` is held on the keyboard, the on-screen D-pad or the gamepad. */
+  isHeld(dir) {
+    if (this.dpadHeld === dir || this.padDir === dir || this.swipe?.dir === dir) return true;
+    for (const code of this.keysDown) if (KEY_DIRS[code] === dir) return true;
+    return false;
   }
 
   // ------------------------------------------------------------ keyboard
@@ -61,6 +71,7 @@ export class Input {
       const dir = KEY_DIRS[e.code];
       if (dir) {
         e.preventDefault();
+        this.keysDown.add(e.code);
         g.steer(dir);
         return;
       }
@@ -85,10 +96,20 @@ export class Input {
           break;
         case 'Escape':
           if (e.repeat) return; // holding Esc must not flicker between paused and playing
-          g.togglePause();
+          if (g.state === 'INTERMISSION') g.skipCutscene();
+          else g.togglePause();
           break;
         default:
       }
+    });
+  }
+
+  /** Releases held direction keys (and everything when the window loses focus). */
+  bindKeyRelease() {
+    window.addEventListener('keyup', (e) => this.keysDown.delete(e.code));
+    window.addEventListener('blur', () => {
+      this.keysDown.clear();
+      this.dpadHeld = null;
     });
   }
 
@@ -177,6 +198,7 @@ export class Input {
       if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
       const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? DIRS.RIGHT : DIRS.LEFT) : (dy > 0 ? DIRS.DOWN : DIRS.UP);
       this.game.steer(dir);
+      s.dir = dir; // counts as held until the finger lifts
       // Re-anchor so several turns can be chained in one gesture
       s.x = e.clientX;
       s.y = e.clientY;
@@ -200,8 +222,13 @@ export class Input {
       // pointerdown (not click) removes the touch delay that matters in a game
       btn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        this.dpadHeld = DIRS[btn.dataset.dir];
         steer(btn);
       });
+      const release = () => {
+        if (this.dpadHeld === DIRS[btn.dataset.dir]) this.dpadHeld = null;
+      };
+      for (const type of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(type, release);
       // Keyboard / assistive-tech activation arrives as a click without a pointer
       btn.addEventListener('click', (e) => {
         if (e.detail === 0) steer(btn);
@@ -249,6 +276,7 @@ export class Input {
       // Modals: the pad moves between their buttons, A presses, B backs out
       if (newDir) this.moveOverlayFocus(dir === DIRS.UP || dir === DIRS.LEFT ? -1 : 1);
       const naming = !g.$('initialsModal').hidden;
+      if (g.overlayLocked) return; // the button that ended the run must not also skip its result
       if (a) {
         if (naming && document.activeElement?.tagName === 'INPUT') g.initialsActions?.save();
         else document.activeElement?.click?.();
@@ -261,9 +289,13 @@ export class Input {
       return;
     }
 
+    if (g.state === 'INTERMISSION') {
+      // A / Cross collects the bonus; B or Start skips the cutscene
+      if (a) g.onBoardTap(...this.boardCenter());
+      if (b || start) g.skipCutscene();
+      return;
+    }
     if (newDir) g.steer(dir);
     if (start) g.togglePause();
-    // A / Cross: collect the cutscene bonus
-    if (a && g.state === 'INTERMISSION') g.onBoardTap(...this.boardCenter());
   }
 }

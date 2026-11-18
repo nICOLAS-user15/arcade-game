@@ -4,7 +4,7 @@ import {
   PHASES, TILE, TILE_SIZE, COLS, ROWS, DIRS, GHOST_DEFS, SPAWN, STEP,
   levelParams, cloneMap, isPacmanWalkable, portalDestination
 } from '../src/config.js';
-import { Pacman, Ghost, tileOf, opposite, interpolate, TURN_TOLERANCE } from '../src/entities.js';
+import { Pacman, Ghost, tileOf, opposite, interpolate, TURN_TOLERANCE, TURN_BUFFER } from '../src/entities.js';
 
 /** Small deterministic PRNG so failures are reproducible. */
 function rng(seed) {
@@ -468,4 +468,21 @@ test('Pac-Man cannot turn off the board while crossing a side tunnel', () => {
       }
     }
   }
+});
+
+test('a tapped turn is forgotten after TURN_BUFFER, a held one waits for the opening', () => {
+  const g = makeGame(0);
+  const p = g.pacman;
+  const steps = Math.ceil(TURN_BUFFER / STEP);
+  p.dir = DIRS.LEFT;
+  p.setDirection(DIRS.UP);
+  for (let i = 0; i < steps - 2; i++) p.expireQueuedTurn();
+  assert.equal(p.nextDir, DIRS.UP, 'still remembered just before the limit');
+  for (let i = 0; i < 4; i++) p.expireQueuedTurn();
+  assert.equal(p.nextDir, null, 'a quick tap does not turn many tiles later');
+
+  g.isHeld = (dir) => dir === DIRS.UP;
+  p.setDirection(DIRS.UP);
+  for (let i = 0; i < steps * 4; i++) p.expireQueuedTurn();
+  assert.equal(p.nextDir, DIRS.UP, 'a direction held down never expires');
 });

@@ -391,7 +391,9 @@ export class MenuUI {
 
     // Home: "Play again" with the last setup, once at least one game was played
     const quick = this.$('btnQuickPlay');
-    quick.hidden = storage.stats().gamesPlayed === 0;
+    // Only after a game in this session: mode and difficulty reset when the game is reopened, so
+    // "Play again" on a fresh launch would not repeat what was really played last
+    quick.hidden = !this.game.sessionGames;
     this.$('quickPlayText').textContent = `${modeName} · ${diffName}`;
   }
 
@@ -525,7 +527,10 @@ export class MenuUI {
     });
     $('howtoPrev').addEventListener('click', () => this.goToStep(this.step - 1));
     $('howtoNext').addEventListener('click', () => {
-      if (this.step >= this.stepCount - 1) this.$('howtoDialog').close();
+      if (this.step >= this.stepCount - 1) {
+        this.howtoCompleted = true;
+        this.$('howtoDialog').close();
+      }
       else this.goToStep(this.step + 1);
     });
     $('howtoDialog').addEventListener('close', () => this.onHowToClosed());
@@ -632,10 +637,11 @@ export class MenuUI {
 
   onHowToClosed() {
     this.app.storage.markSeen('tutorial');
-    if (this.startAfterHowTo) {
-      this.startAfterHowTo = false;
-      this.game.startNewGame();
-    }
+    // Only the tutorial's last button ("Play") starts the game; Esc, X or a backdrop click just close it
+    const start = this.startAfterHowTo && this.howtoCompleted;
+    this.startAfterHowTo = false;
+    this.howtoCompleted = false;
+    if (start) this.game.startNewGame();
   }
 
   /** Paints the little canvases in the tutorial steps with the real game sprites. */
@@ -725,23 +731,32 @@ export class MenuUI {
     body.appendChild(played);
   }
 
+  /**
+   * Two presses: the first turns the button into "Confirm?" for 3 s. The feedback lives in the
+   * Settings dialog itself (toasts sit under the dialog's backdrop) and is read out by screen readers.
+   */
   resetProgress() {
     const btn = this.$('btnReset');
+    const hint = btn.closest('.setting').querySelector('small');
+    const disarm = () => {
+      clearTimeout(this.resetArmed);
+      this.resetArmed = null;
+      btn.classList.remove('armed');
+      btn.textContent = t('settings.reset.btn');
+    };
     if (!this.resetArmed) {
-      this.app.toast(t('toast.resetConfirm'));
       btn.classList.add('armed');
-      this.resetArmed = setTimeout(() => {
-        this.resetArmed = null;
-        btn.classList.remove('armed');
-      }, 3000);
+      btn.textContent = t('settings.reset.confirm');
+      this.app.announce(t('toast.resetConfirm'));
+      this.resetArmed = setTimeout(disarm, 3000);
       return;
     }
-    clearTimeout(this.resetArmed);
-    this.resetArmed = null;
-    btn.classList.remove('armed');
+    disarm();
     this.app.storage.resetProgress();
     this.game.seenHints.clear();
-    this.app.toast(t('toast.reset'));
+    hint.textContent = `✓ ${t('toast.reset')}`;
+    setTimeout(() => (hint.textContent = t(hint.dataset.i18n)), 3000);
+    this.app.announce(t('toast.reset'));
     this.refresh();
   }
 }

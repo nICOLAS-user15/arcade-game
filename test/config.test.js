@@ -217,3 +217,16 @@ test('scatter/chase waves: arcade schedule, shorter on harder difficulties and l
   assert.ok(scatter('normal', 6) < scatter('normal', 1), 'Endless laps shorten the breaks');
   assert.ok(scatter('hardcore', 80) > 0, 'never disappears entirely');
 });
+
+test('Endless never gets easier than the last stage: ghost pressure stays at least at stage 5', () => {
+  for (const d of Object.values(DIFFICULTIES)) {
+    const ratio = (level) => {
+      const p = levelParams(level, d);
+      return p.ghostSpeed / p.pacmanSpeed;
+    };
+    const final = ratio(PHASE_COUNT);
+    for (let level = PHASE_COUNT + 1; level <= 40; level++) {
+      assert.ok(ratio(level) >= final - 0.02, `${d.id} level ${level}: ${ratio(level).toFixed(2)} vs stage 5 ${final.toFixed(2)}`);
+    }
+  }
+});

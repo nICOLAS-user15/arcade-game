@@ -324,6 +324,9 @@ export function loopForLevel(level) {
  * gradually faster (capped, so the game stays playable), shorter power-ups and
  * faster ghost-house releases.
  */
+/** Ghost speed relative to Pac-Man on the last stage: the floor for every Endless lap. */
+const FINAL_STAGE_RATIO = PHASES[PHASES.length - 1].ghostSpeed / PHASES[PHASES.length - 1].pacmanSpeed;
+
 export function levelParams(level, difficulty = DIFFICULTIES.normal) {
   const phase = phaseForLevel(level);
   const loop = loopForLevel(level);
@@ -331,9 +334,13 @@ export function levelParams(level, difficulty = DIFFICULTIES.normal) {
   const frightRamp = Math.max(0.4, 1 - loop * 0.12);
   // Scatter breaks get shorter with harder difficulties and with every Endless lap
   const scatterScale = (difficulty.scatter ?? 1) * Math.max(0.4, 1 - loop * 0.15);
+  // Ghost pressure is relative to Pac-Man. Endless laps restart on the early mazes, but must never
+  // feel easier than the last stage: from the second lap on, the ratio never drops below stage 5's.
+  const stageRatio = phase.ghostSpeed / phase.pacmanSpeed;
+  const ratio = loop > 0 ? Math.max(stageRatio, FINAL_STAGE_RATIO) : stageRatio;
   return {
     pacmanSpeed: phase.pacmanSpeed,
-    ghostSpeed: round2(capGhostSpeed(phase.ghostSpeed * difficulty.ghostSpeed * ghostRamp, phase.pacmanSpeed)),
+    ghostSpeed: round2(capGhostSpeed(phase.pacmanSpeed * ratio * difficulty.ghostSpeed * ghostRamp, phase.pacmanSpeed)),
     waves: BASE_WAVES.map(([scatter, chase]) => [round2(scatter * scatterScale), chase]),
     frightenedDuration: Math.max(1.5, round2(phase.frightenedDuration * difficulty.fright * frightRamp)),
     ghostReleases: phase.ghostReleases.map((t) => round2((t * difficulty.release) / ghostRamp)),

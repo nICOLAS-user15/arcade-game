@@ -12,7 +12,7 @@ import {
   ghostModeAt, ELROY_PELLETS, ENDLESS_LIFE_EVERY, MAX_LIVES
 } from './config.js';
 import { Pacman, Ghost, tileOf } from './entities.js';
-import { Cutscene } from './cutscene.js';
+import { Cutscene, CUTSCENE_BONUS } from './cutscene.js';
 import { drawPowerPellet, drawPortal, drawEmoji, pelletPath, getSkin } from './sprites.js';
 import { stageLook, canvasFont, shade } from './themes.js';
 import { STAGE_TRACK } from './songs.js';
@@ -34,6 +34,24 @@ const EAT_DISTANCE = 0.75;
 /** Tunnels wrap the board with this period (see wrapAround in entities.js). */
 const WRAP_W = (COLS + 1) * TILE_SIZE;
 const WRAP_H = (ROWS + 1) * TILE_SIZE;
+/**
+ * The tunnel proper: from each side edge inwards, the corridor tiles walled in above and below.
+ * Ghosts slow down only there (not at the first junction of a row that merely reaches the edge).
+ * Returns a Set of row * COLS + col.
+ */
+export function tunnelTiles(map, rows) {
+  const tiles = new Set();
+  const enclosed = (c, r) => {
+    const solid = (rr) => rr < 0 || rr >= ROWS || map[rr][c] === TILE.WALL;
+    return map[r][c] !== TILE.WALL && solid(r - 1) && solid(r + 1);
+  };
+  for (const r of rows) {
+    for (let c = 0; c < COLS && enclosed(c, r); c++) tiles.add(r * COLS + c);
+    for (let c = COLS - 1; c >= 0 && enclosed(c, r); c--) tiles.add(r * COLS + c);
+  }
+  return tiles;
+}
+
 /** Shortest offset across a tunnel: one actor at x = -5 and another at x = 385 are touching. */
 const wrapDelta = (d, period) => (Math.abs(d) > period / 2 ? d - Math.sign(d) * period : d);
 const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the next endless level
@@ -44,6 +62,10 @@ const ENDLESS_CLEAR_FLASH = 0.6; // seconds the cleared maze flashes before the 
  */
 const COUNTDOWN = Object.freeze({ stage: 3, respawn: 2.1, endless: 1.8 });
 const COUNTDOWN_DIGITS = 3;
+/** Points given instead of an extra life when the lives are already full. */
+const FULL_LIVES_BONUS = 5000;
+/** Result and name screens ignore keys/buttons this long, so a key still held from play can't skip them. */
+const OVERLAY_INPUT_LOCK = 600;
 const GO_TIME = 0.5; // "GO!" stays on screen this long once play starts
 /** Seconds between the chirps of ghost eyes racing home. */
 const RETREAT_EVERY = 0.16;
@@ -187,12 +209,15 @@ export class Game {
     for (let r = 0; r < ROWS; r++) {
       if (isPacmanWalkable(this.map, 0, r) && this.map[r][0] !== TILE.WALL) this.tunnelRows.add(r);
     }
+    this.tunnelTiles = tunnelTiles(this.map, this.tunnelRows);
     this.fruit = { active: false, timer: 0, x: SPAWN.fruit.col * TILE_SIZE + TILE_SIZE / 2, y: SPAWN.fruit.row * TILE_SIZE + TILE_SIZE / 2 };
+    this.elroySuspended = false;
     this.ghostCombo = 0;
     this.floaters.length = 0;
     this.particles.length = 0;
     this.hitStop = 0;
     this.mazeCache = null;
+    this.app.sound.forgetMusicPositions();
 
     this.pacman = new Pacman(this);
     this.ghosts = GHOST_DEFS.map((def, i) => new Ghost(this, def, this.params.ghostReleases[i]));
@@ -206,6 +231,7 @@ export class Game {
     this.commitScore();
     this.newSession();
     this.app.storage.incrementGamesPlayed();
+    this.sessionGames = (this.sessionGames || 0) + 1; // shows "Play again" in the menu
     this.app.sound.init();
     this.showGameScreen();
     this.beginLevel(true);
@@ -317,7 +343,7 @@ export class Game {
 
     if (this.state === 'INTERMISSION') {
       this.cutscene.update(dt);
-      if (this.cutscene.done) this.showBriefing();
+      if (this.cutscene.done) this.finishCutscene();
     } else if (['READY', 'PLAYING', 'DYING', 'STAGE_CLEAR'].includes(this.state)) {
       this.acc += dt;
       let steps = 0;
@@ -375,6 +401,7 @@ export class Game {
     this.checkFruit();
     this.updateWaves();
     for (const ghost of this.ghosts) ghost.step(); // all ghosts move before collisions, so eating one never freezes the rest
+    if (this.elroySuspended && !this.ghosts[this.ghosts.length - 1].inHouse) this.elroySuspended = false;
     for (const ghost of this.ghosts) {
       if (ghost.state === 'EATEN' || ghost.state === 'IN_HOUSE') continue;
       const dist = Math.hypot(wrapDelta(this.pacman.x - ghost.x, WRAP_W), wrapDelta(this.pacman.y - ghost.y, WRAP_H)) / TILE_SIZE;
@@ -418,6 +445,8 @@ export class Game {
 
   /** "Cruise Elroy": Blinky speeds up for the last pellets of a level (see ELROY_PELLETS). */
   get elroy() {
+    // After a death Blinky waits until Clyde has left the house before speeding up again (arcade rule)
+    if (this.elroySuspended) return false;
     return this.pelletsLeft > 0 && this.pelletsLeft <= Math.max(1, Math.floor(this.pelletsTotal * ELROY_PELLETS));
   }
 
@@ -430,7 +459,9 @@ export class Game {
       if (g.scared) frightLeft = Math.max(frightLeft, g.frightenedTimer);
       else if (g.state === 'EATEN') eyes = true;
     }
-    sound.playMusic(frightLeft > 0 ? 'power' : STAGE_TRACK[this.phase.id] || 'classic');
+    // The stage song picks up where the power-up music interrupted it, instead of restarting
+    if (frightLeft > 0) sound.playMusic('power');
+    else sound.playMusic(STAGE_TRACK[this.phase.id] || 'classic', { resume: true });
 
     const eaten = 1 - this.pelletsLeft / this.pelletsTotal;
     sound.setMusicTempo(1 + Math.max(0, (eaten - 0.75) / 0.25) * FINAL_RUSH_TEMPO);
@@ -472,7 +503,7 @@ export class Game {
   // ================================================================ rules (called by entities)
 
   isTunnelTile(col, row) {
-    return this.tunnelRows.has(row) && (col <= 1 || col >= COLS - 2);
+    return this.tunnelTiles.has(row * COLS + col);
   }
 
   onPellet(col, row) {
@@ -567,6 +598,8 @@ export class Game {
     this.resetWaves();
     this.ghostCombo = 0;
     this.hitStop = 0;
+    this.fruit.active = false; // a new life starts on a clean board
+    this.elroySuspended = true;
     this.startCountdown(COUNTDOWN.respawn);
   }
 
@@ -586,7 +619,14 @@ export class Game {
     if (this.extraLives > 0 && !this.endless) return; // Campaign: only the first one
     this.extraLives++;
     this.nextLifeAt += ENDLESS_LIFE_EVERY;
-    if (this.lives >= MAX_LIVES) return;
+    if (this.lives >= MAX_LIVES) {
+      // Lives are full: the reward becomes points instead of disappearing in silence
+      this.score += FULL_LIVES_BONUS;
+      this.updateScore(true);
+      this.app.sound.extraLife();
+      this.app.toast(t('toast.livesFull', { n: formatNumber(FULL_LIVES_BONUS) }), 'good');
+      return;
+    }
     this.lives++;
     this.updateLives();
     this.app.sound.extraLife();
@@ -623,6 +663,9 @@ export class Game {
       this.continueEndless();
       return;
     }
+    // A pause postponed while the stage was clearing would otherwise wait through the cutscene and
+    // the briefing (which already wait for the player) and fire later at a random moment
+    this.pauseOnReady = false;
     this.startCutscene();
   }
 
@@ -648,11 +691,25 @@ export class Game {
     if (this.phase.portals.length) this.hint('portal', 'hint.portal');
   }
 
+  /**
+   * Every intermission is worth the same bonus, however it ends: tapping just collects it sooner, and
+   * players who skip it or play with reduced motion are not behind on the shared high-score table.
+   */
+  finishCutscene() {
+    const rest = CUTSCENE_BONUS - (this.cutscene?.bonus || 0);
+    if (rest > 0) {
+      this.addScore(rest);
+      if (this.cutscene) this.cutscene.bonus += rest;
+    }
+    this.cutsceneBonus = CUTSCENE_BONUS;
+    this.showBriefing();
+  }
+
   startCutscene() {
     // Reduce motion: skip the animated intermission and go straight to the next-stage card
     if (this.app.reduceMotion) {
       this.cutscene = null;
-      this.showBriefing();
+      this.finishCutscene();
       return;
     }
     const variant = ((this.level - 1) % 4) + 1;
@@ -690,7 +747,7 @@ export class Game {
     const pct = Math.round((params.ghostSpeed / baseline - 1) * 100);
     $('briefingSpeedText').textContent = pct > 0 ? t('briefing.speed.up', { n: pct }) : t('briefing.speed.base');
 
-    const bonus = this.cutscene ? this.cutscene.bonus : 0;
+    const bonus = this.cutsceneBonus || 0;
     $('briefingBonusPts').textContent = `+${formatNumber(bonus)}`;
     $('briefingBonusPts').parentElement.hidden = bonus === 0;
 
@@ -709,9 +766,19 @@ export class Game {
     this.beginLevel(true);
   }
 
+  /**
+   * True when this run beats the best score from before it started. The best is also saved during the
+   * run (stage clears, pauses), so commitScore() alone would compare the score with itself.
+   */
+  get isNewRecord() {
+    return !this.difficulty.custom && this.score > this.storedBest;
+  }
+
   victory() {
     this.state = 'VICTORY';
-    const isRecord = this.commitScore();
+    this.pauseOnReady = false;
+    this.commitScore();
+    const isRecord = this.isNewRecord;
     this.app.sound.playJingle(isRecord ? 'record' : 'victory');
     this.askInitials((rank) => this.showResult({
       icon: '👑',
@@ -734,7 +801,8 @@ export class Game {
 
   gameOver() {
     this.state = 'GAMEOVER';
-    const isRecord = this.commitScore();
+    this.commitScore();
+    const isRecord = this.isNewRecord;
     this.app.sound.playJingle(isRecord ? 'record' : 'gameOver');
     this.app.announce(t('sr.gameOver', { score: formatNumber(this.score) }));
     const where = t(this.isEndlessView ? 'result.where.level' : 'result.where.stage', { n: this.level });
@@ -827,6 +895,11 @@ export class Game {
 
   steer(dir) {
     if (this.state === 'PLAYING' || this.state === 'READY') this.pacman.setDirection(dir);
+  }
+
+  /** Whether a direction is still held down (a held turn never expires, see TURN_BUFFER). */
+  isHeld(dir) {
+    return this.input.isHeld(dir);
   }
 
   skipCutscene() {
@@ -1289,9 +1362,15 @@ export class Game {
 
   // ================================================================ overlay modals
 
+  /** True for a moment after a result or name screen appears (see OVERLAY_INPUT_LOCK). */
+  get overlayLocked() {
+    return performance.now() < (this.overlayReadyAt || 0);
+  }
+
   showOverlayModal(id) {
     for (const m of MODALS) this.$(m).hidden = m !== id;
     this.overlay.hidden = false;
+    this.overlayReadyAt = id === 'pauseModal' ? 0 : performance.now() + OVERLAY_INPUT_LOCK;
     const modal = this.$(id);
     const focusTarget = modal.querySelector('.btn-primary') || modal.querySelector('button');
     setTimeout(() => focusTarget && focusTarget.focus({ preventScroll: true }), 30);
@@ -1347,6 +1426,8 @@ export class Game {
     const $ = this.$;
     const press = (id, fn) => {
       $(id).addEventListener('click', (e) => {
+        // A key still held from play (Space, A) must not press the result screen's first button
+        if (this.overlayLocked && this.overlay.contains(e.currentTarget)) return;
         this.app.sound.init();
         this.app.sound.click();
         // Pointer clicks drop focus so Space keeps pausing the game; keyboard activation keeps it
@@ -1379,7 +1460,7 @@ export class Game {
     });
     nameInput.addEventListener('compositionend', filterName);
     nameInput.addEventListener('keydown', (e) => {
-      if (e.isComposing) return;
+      if (e.isComposing || this.overlayLocked) return;
       // Phone keyboards often send an empty `code` for their "Done" key, so check `key` too
       if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') {
         e.preventDefault();

@@ -178,26 +178,38 @@ export class MusicPlayer {
     this.current = null;
     this.tempo = 1;
     this.timer = null;
+    /** Where each looping song was left when another one took over (e.g. the power-up music). */
+    this.positions = {};
   }
 
   get playing() {
     return this.current?.name || null;
   }
 
-  play(name) {
+  /** With `resume`, a looping song continues from where it was interrupted instead of bar 1. */
+  play(name, { resume = false } = {}) {
     if (this.current?.name === name) return;
     const song = getSongs()[name];
     if (!song) return;
-    this.stop();
+    const prev = this.current;
+    if (prev?.song.loop) this.positions[prev.name] = prev.step;
+    this.fadeOut();
     const gain = this.ctx.createGain();
     gain.connect(this.out);
-    this.current = { name, song, step: 0, next: this.ctx.currentTime + 0.05, gain };
+    const step = resume ? (this.positions[name] || 0) % song.length : 0;
+    this.current = { name, song, step, next: this.ctx.currentTime + 0.05, gain };
     if (!this.timer) this.timer = setInterval(() => this.schedule(), TIMER_MS);
     this.schedule();
   }
 
-  /** Fades the current song out quickly (notes already queued are silenced too). */
+  /** Stops the music and forgets where every song was. */
   stop() {
+    this.positions = {};
+    this.fadeOut();
+  }
+
+  /** Fades the current song out quickly (notes already queued are silenced too). */
+  fadeOut() {
     const cur = this.current;
     this.current = null;
     if (cur) {

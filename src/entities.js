@@ -7,7 +7,8 @@
  *   game.map, game.params, game.pacman, game.isTunnelTile(col,row),
  *   game.onPellet(col,row), game.onPortal(entity) -> true when the entity was moved
  * Optional (absent in tests means "always chase, no Elroy"):
- *   game.ghosts (Inky's aim uses Blinky), game.ghostMode ('scatter' | 'chase'), game.elroy (boolean)
+ *   game.ghosts (Inky's aim uses Blinky), game.ghostMode ('scatter' | 'chase'), game.elroy (boolean),
+ *   game.isHeld(dir) (true while that direction is held down; absent means buffered turns expire)
  *
  * Portals fire when an entity steps onto the tile, never while it stands on it, so a
  * player who stops on the destination is not bounced back and forth.
@@ -24,6 +25,12 @@ const RADIUS = TILE_SIZE * 0.44;
  * Small enough to be invisible, large enough that a queued turn is never missed at full speed.
  */
 export const TURN_TOLERANCE = 5;
+/**
+ * A turn pressed against a wall is remembered this long (seconds), so it can be taken at the next
+ * opening, but a quick tap does not fire a surprise turn many tiles later. A direction that is
+ * still held down (key, D-pad, stick) never expires.
+ */
+export const TURN_BUFFER = 0.6;
 const FRIGHTENED_SPEED = 0.6;
 const EATEN_SPEED = 1.8;
 const TUNNEL_SPEED = 0.55;
@@ -85,6 +92,14 @@ export class Pacman {
       return;
     }
     this.nextDir = dir;
+    this.nextDirAge = 0;
+  }
+
+  /** Forgets a buffered turn once it is too old, unless the player is still holding it. */
+  expireQueuedTurn() {
+    if (!this.nextDir || this.nextDir === this.dir) return;
+    this.nextDirAge = (this.nextDirAge || 0) + STEP;
+    if (this.nextDirAge > TURN_BUFFER && !this.game.isHeld?.(this.nextDir)) this.nextDir = null;
   }
 
   canWalk(col, row) {
@@ -102,6 +117,7 @@ export class Pacman {
     const cx = CENTER(col);
     const cy = CENTER(row);
 
+    this.expireQueuedTurn();
     this.applyQueuedTurn(col, row, cx, cy);
     const startX = this.x;
     const startY = this.y;

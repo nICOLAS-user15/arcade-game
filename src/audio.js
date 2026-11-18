@@ -112,11 +112,16 @@ export class SoundController {
    * Switches the soundtrack. Looping songs are remembered, so they come back when music is
    * re-enabled or audio is unlocked; jingles play once and are not.
    */
-  playMusic(name, { loop = true } = {}) {
+  playMusic(name, { loop = true, resume = false } = {}) {
     this.wantedMusic = loop ? name : null;
     if (!this.music || !this.musicEnabled) return;
     if (!loop && this.music.playing === name) this.music.stop(); // replay a jingle from the top
-    this.music.play(name);
+    this.music.play(name, { resume });
+  }
+
+  /** A new stage starts its song from the top, even if the same song was interrupted before. */
+  forgetMusicPositions() {
+    if (this.music) this.music.positions = {};
   }
 
   playJingle(name) {

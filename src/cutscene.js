@@ -1,6 +1,7 @@
 /**
- * Short animated intermission shown after each stage. The player can tap/press
- * Space during it to collect bonus points (capped, so it can't be farmed).
+ * Short animated intermission shown after each stage. The player can tap/press Space during it to
+ * collect the stage bonus early (capped, so it can't be farmed); the game tops it up to the same
+ * total however the cutscene ends. "SKIP >>" in the top-right corner can be tapped too.
  */
 
 import { LOGICAL_W, LOGICAL_H } from './config.js';
@@ -8,7 +9,12 @@ import { drawPacman, drawGhost, drawEmoji, drawPowerPellet } from './sprites.js'
 import { t } from './i18n.js';
 import { getTheme, canvasFont, rgba } from './themes.js';
 
-export const MAX_BONUS_TAPS = 25;
+export const MAX_BONUS_TAPS = 5;
+const TAP_POINTS = 100;
+/** Total bonus of one intermission (also given to players who skip it or play with reduced motion). */
+export const CUTSCENE_BONUS = MAX_BONUS_TAPS * TAP_POINTS;
+/** Tappable "SKIP >>" area in the top-right corner, in canvas units. */
+const SKIP_ZONE = { x: LOGICAL_W - 110, y: 38 };
 const STAGE_Y = 220;
 
 const CONFETTI_COLORS = ['#facc15', '#38bdf8', '#f43f5e', '#a855f7', '#4ade80', '#ffffff'];
@@ -52,11 +58,17 @@ export class Cutscene {
   }
 
   tap(x = LOGICAL_W / 2, y = STAGE_Y) {
-    if (this.done || this.taps >= MAX_BONUS_TAPS) return false;
+    if (this.done) return false;
+    // Touch players have no P key: the corner label is a button
+    if (x >= SKIP_ZONE.x && y <= SKIP_ZONE.y) {
+      this.skip();
+      return false;
+    }
+    if (this.taps >= MAX_BONUS_TAPS) return false;
     this.taps++;
-    this.bonus += 100;
-    this.hooks.onBonus(100);
-    this.texts.push({ text: '+100!', x, y: y - 10, life: 0.9 });
+    this.bonus += TAP_POINTS;
+    this.hooks.onBonus(TAP_POINTS);
+    this.texts.push({ text: `+${TAP_POINTS}!`, x, y: y - 10, life: 0.9 });
     const count = this.hooks.reduceMotion ? 4 : 14;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
