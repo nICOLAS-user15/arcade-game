@@ -74,7 +74,18 @@ test('the page is CSP-friendly: no inline scripts, styles or event handlers', ()
     assert.doesNotMatch(code, /\.cssText\b/, `${file} uses cssText`);
     assert.doesNotMatch(code, /\beval\(|new Function\(/, `${file} uses eval`);
     assert.doesNotMatch(code, /\.innerHTML\s*=/, `${file} writes innerHTML`);
+    // Other HTML sinks: everything reaches the page through textContent (Trusted Types enforce it too)
+    assert.doesNotMatch(code, /\.outerHTML\s*=|insertAdjacentHTML|document\.write|\.srcdoc\s*=|DOMParser/, `${file} uses an HTML sink`);
+    assert.doesNotMatch(code, /set(Timeout|Interval)\(\s*['"`]/, `${file} passes a string to a timer`);
   }
+});
+
+test('Trusted Types: the CSP requires them and the only policy is the one in main.js', () => {
+  const csp = read('index.html').match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)[1];
+  assert.match(csp, /require-trusted-types-for 'script'/);
+  assert.match(csp, /trusted-types pacman(;|$)/);
+  const policies = srcFiles.flatMap((f) => [...read(`src/${f}`).matchAll(/createPolicy\(\s*'([^']+)'/g)].map((m) => `${f}:${m[1]}`));
+  assert.deepEqual(policies, ['main.js:pacman']);
 });
 
 test('the page allows zooming and declares its language and viewport', () => {

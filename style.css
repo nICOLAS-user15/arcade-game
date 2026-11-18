@@ -1005,3 +1005,10 @@ html:lang(ja)[data-theme='classic'] { --font-pixel: 'Press Start 2P', var(--jp),
 html:lang(ja)[data-theme='retro'] { --font-pixel: 'Silkscreen', var(--jp), monospace; --font-ui: 'VT323', var(--jp), monospace; }
 html:lang(ja)[data-theme='pastel'] { --font-pixel: 'Fredoka', var(--jp), sans-serif; --font-ui: 'Nunito', var(--jp), sans-serif; }
 html:lang(ja)[data-theme='minimal'] { --font-pixel: 'Space Mono', var(--jp), monospace; --font-ui: 'Space Grotesk', var(--jp), sans-serif; }
+
+/* Shown instead of the game when another site tries to embed it in a frame (see src/main.js) */
+.frame-notice {
+  min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 20px;
+  padding: 24px; text-align: center; font-size: 18px; color: var(--text); background: var(--bg, #060811);
+}
+.frame-notice .btn-primary { width: auto; padding: 0 28px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }

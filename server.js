@@ -47,6 +47,8 @@ export const SECURITY_HEADERS = {
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
+    "require-trusted-types-for 'script'",
+    'trusted-types pacman',
     "frame-ancestors 'none'"
   ].join('; '),
   'X-Content-Type-Options': 'nosniff',

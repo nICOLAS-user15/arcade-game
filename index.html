@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <!-- GitHub Pages cannot send HTTP headers, so the CSP also lives here (same policy as server.js;
        frame-ancestors only works as a header and is set there). Keep it before any resource loads. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types pacman">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060811">
@@ -239,7 +239,7 @@
               <p id="initialsRank" class="modal-text"></p>
               <label class="initials-field">
                 <span class="field-label" data-i18n="initials.prompt">Enter your name</span>
-                <input id="initialsInput" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done">
+                <input id="initialsInput" type="text" maxlength="12" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done">
               </label>
               <div class="modal-actions">
                 <button type="button" id="btnInitialsSave" class="btn-primary small" data-i18n="initials.save">SAVE</button>
