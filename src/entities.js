@@ -83,7 +83,11 @@ export class Pacman {
     this.isMoving = false;
   }
 
-  setDirection(dir) {
+  /**
+   * `remember`: touch controls (D-pad taps, swipes) are quick taps made ahead of the corner, so their
+   * turn waits for the opening however far away it is; keys and sticks are held, so theirs expire.
+   */
+  setDirection(dir, remember = false) {
     if (!dir) return;
     // Reversing is allowed anywhere in a corridor
     if (isOpposite(this.dir, dir)) {
@@ -93,11 +97,12 @@ export class Pacman {
     }
     this.nextDir = dir;
     this.nextDirAge = 0;
+    this.nextDirKept = remember;
   }
 
   /** Forgets a buffered turn once it is too old, unless the player is still holding it. */
   expireQueuedTurn() {
-    if (!this.nextDir || this.nextDir === this.dir) return;
+    if (!this.nextDir || this.nextDir === this.dir || this.nextDirKept) return;
     this.nextDirAge = (this.nextDirAge || 0) + STEP;
     if (this.nextDirAge > TURN_BUFFER && !this.game.isHeld?.(this.nextDir)) this.nextDir = null;
   }

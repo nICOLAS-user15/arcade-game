@@ -922,8 +922,9 @@ export class Game {
     else this.pause();
   }
 
-  steer(dir) {
-    if (this.state === 'PLAYING' || this.state === 'READY') this.pacman.setDirection(dir);
+  /** `fromTouch`: the turn is remembered until the next corner (see Pacman.setDirection). */
+  steer(dir, fromTouch = false) {
+    if (this.state === 'PLAYING' || this.state === 'READY') this.pacman.setDirection(dir, fromTouch);
   }
 
   /** Whether a direction is still held down (a held turn never expires, see TURN_BUFFER). */

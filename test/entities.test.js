@@ -486,3 +486,16 @@ test('a tapped turn is forgotten after TURN_BUFFER, a held one waits for the ope
   for (let i = 0; i < steps * 4; i++) p.expireQueuedTurn();
   assert.equal(p.nextDir, DIRS.UP, 'a direction held down never expires');
 });
+
+test('a turn tapped on the touch D-pad or swiped waits for the next opening, however far', () => {
+  const g = makeGame(0);
+  const p = g.pacman;
+  g.isHeld = () => false; // the finger has already lifted
+  p.dir = DIRS.LEFT;
+  p.setDirection(DIRS.UP, true);
+  for (let i = 0; i < Math.ceil(TURN_BUFFER / STEP) * 10; i++) p.expireQueuedTurn();
+  assert.equal(p.nextDir, DIRS.UP);
+  p.setDirection(DIRS.DOWN);
+  for (let i = 0; i < Math.ceil(TURN_BUFFER / STEP) * 2; i++) p.expireQueuedTurn();
+  assert.equal(p.nextDir, null, 'a key press afterwards expires as usual');
+});

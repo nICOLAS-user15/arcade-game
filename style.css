@@ -114,6 +114,8 @@ kbd {
 
 .app { position: relative; min-height: var(--vh); }
 .game, .menu { user-select: none; -webkit-user-select: none; }
+/* No double-tap zoom anywhere on the game screen (quick repeated taps are normal in play) */
+.game { touch-action: manipulation; }
 
 /* Shared buttons */
 .btn-primary {
@@ -433,6 +435,7 @@ kbd {
 .dpad {
   position: relative; width: var(--dpad-h); height: var(--dpad-h);
   display: none; justify-self: center; margin-top: 0; /* centered: both thumbs can reach it */
+  touch-action: none; -webkit-tap-highlight-color: transparent; /* the gaps belong to the pad too: no zoom or scroll */
 }
 html[data-dpad='on'] .dpad { display: block; }
 html[data-dpad='on'] .key-hints { display: none; }
@@ -447,7 +450,7 @@ html[data-dpad='on'] .key-hints { display: none; }
   transition: background 0.06s, transform 0.06s;
 }
 .dpad-btn svg { width: 46%; height: 46%; fill: currentColor; stroke: none; }
-.dpad-btn:active { background: var(--blue); color: var(--accent-text); transform: scale(0.94); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+.dpad-btn.pressed { background: var(--blue); color: var(--accent-text); transform: scale(0.94); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
 .dpad-btn.up { top: 0; left: calc(var(--size) + var(--dpad-gap)); }
 .dpad-btn.left { top: calc(var(--size) + var(--dpad-gap)); left: 0; }
 .dpad-btn.right { top: calc(var(--size) + var(--dpad-gap)); right: 0; }
